@@ -5,6 +5,7 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.mtl._
 import cats.{Applicative, Monad}
+import com.bcf.statefun4s.FlinkError.DeserializationError
 import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
@@ -61,21 +62,22 @@ object StatefulFunction {
       .flatMap(func)
   }
 
-  def flinkWrapper[F[_]: Monad, A](
-      initialState: Array[Byte],
-      func: any.Any => FunctionStack[F, Array[Byte], Unit]
+  def flinkWrapper[F[_]: Monad, S: Codec](initialState: S)(
+      func: any.Any => FunctionStack[F, S, Unit]
   ): ToFunction.InvocationBatchRequest => F[Either[FlinkError, FromFunction]] = { input =>
     val startState =
       input.state.headOption
         .map(_.stateValue.toByteArray())
         .filter(!_.isEmpty)
-        .getOrElse(initialState)
+        .map(Codec[S].deserialize)
+        .getOrElse(initialState.asRight)
+        .leftMap(DeserializationError(_): FlinkError)
     val targetAddr =
       EitherT.fromOption[F](input.target, FlinkError.NoFunctionAddressGiven: FlinkError)
     targetAddr.flatMap { targetAddr =>
       val env = Env(targetAddr.namespace, targetAddr.`type`, targetAddr.id)
       input.invocations
-        .foldLeft(EitherT.pure[F, FlinkError](FunctionState(startState))) { (state, invocation) =>
+        .foldLeft(EitherT.fromEither[F](startState.map(FunctionState(_)))) { (state, invocation) =>
           invocation.argument
             .map { arg =>
               state.flatMap { state =>
@@ -86,11 +88,11 @@ object StatefulFunction {
             }
             .getOrElse(state)
         }
-        .map(stateToFromFunction)
+        .map(stateToFromFunction[S])
     }.value
   }
 
-  private def stateToFromFunction(state: FunctionState[Array[Byte]]): FromFunction =
+  private def stateToFromFunction[S: Codec](state: FunctionState[S]): FromFunction =
     FromFunction(
       FromFunction.Response.InvocationResult(
         FromFunction.InvocationResponse(
@@ -99,7 +101,7 @@ object StatefulFunction {
               PersistedValueMutation(
                 PersistedValueMutation.MutationType.MODIFY,
                 Constants.STATE_KEY,
-                ByteString.copyFrom(state.ctx)
+                ByteString.copyFrom(Codec[S].serialize(state.ctx))
               )
             )
           else Nil,
@@ -109,15 +111,6 @@ object StatefulFunction {
         )
       )
     )
-
-  implicit def inputCodec[A <: GeneratedMessage](implicit
-      companion: GeneratedMessageCompanion[A]
-  ): Codec[A] =
-    new Codec[A] {
-      override def serialize(data: A): Array[Byte] = data.toByteString.toByteArray()
-      override def deserialize(data: Array[Byte]): Either[Throwable, A] =
-        Either.catchNonFatal(companion.parseFrom(data))
-    }
 
   implicit def stateFunStack[F[_]: Sync: Stateful[*[_], FunctionState[S]]: Raise[
     *[_],

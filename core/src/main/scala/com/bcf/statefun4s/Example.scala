@@ -1,20 +1,22 @@
 package com.bcf.statefun4s
 
 import scala.annotation.nowarn
+import scala.concurrent.ExecutionContext
 
 import cats.effect._
 import cats.implicits._
 import com.bcf.statefun4s.example.Example._
+import org.http4s.server.blaze.BlazeServerBuilder
 
 import StatefulFunction._
 
-object Main extends IOApp {
+object Example extends IOApp {
   case class InputMsg(name: String)
 
-  def greeterEntry[F[_]: StatefulFunction[*[_], GreeterState]: Sync](
+  def greeterEntry[F[_]: StatefulFunction[*[_], Unit]: Sync](
       input: GreeterRequest
   ): F[Unit] =
-    StatefulFunction[F, GreeterState].sendByteMessage("example", "greeter", input.name, input)
+    StatefulFunction[F, Unit].sendByteMessage("example", "greeter", input.name, input)
 
   def greeter[F[_]: StatefulFunction[*[_], GreeterState]: Sync](
       @nowarn input: GreeterRequest
@@ -28,11 +30,25 @@ object Main extends IOApp {
   }
 
   override def run(args: List[String]): IO[ExitCode] = {
-    val output = greeter[FunctionStack[IO, GreeterState, *]](GreeterRequest("Tim"))
-    for {
-      (state, res) <-
-        output.value.run(FunctionState(GreeterState(5))).run(Env("example", "greeter", "Tim"))
-      _ <- IO(println(state))
-    } yield ExitCode.Success
+    val app = FunctionTable.makeApp(
+      Map(
+        ("example", "greeter") -> flinkWrapper(GreeterState(5))(
+          protoInput(greeter[FunctionStack[IO, GreeterState, *]])
+        ),
+        ("example", "greeterEntry") -> flinkWrapper(())(
+          protoInput(greeterEntry[FunctionStack[IO, Unit, *]])
+        ),
+      )
+    )
+    BlazeServerBuilder[IO](ExecutionContext.global)
+      .bindHttp(
+        8080,
+        "0.0.0.0"
+      )
+      .withHttpApp(app)
+      .serve
+      .compile
+      .drain
+      .as(ExitCode.Success)
   }
 }

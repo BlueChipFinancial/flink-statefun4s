@@ -8,7 +8,8 @@ import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
   ToFunction
 }
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{HttpRoutes, Response, Status}
+import org.http4s.implicits._
+import org.http4s.{HttpApp, HttpRoutes, Response, Status}
 
 import FlinkError._
 
@@ -16,6 +17,8 @@ object FunctionTable {
   type Table[F[_]] = Map[(String, String), ToFunction.InvocationBatchRequest => F[
     Either[FlinkError, FromFunction]
   ]]
+
+  def makeApp[F[_]: Sync](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
 
   def makeRoutes[F[_]: Sync](table: Table[F]): HttpRoutes[F] =
     new Http4sDsl[F] {
