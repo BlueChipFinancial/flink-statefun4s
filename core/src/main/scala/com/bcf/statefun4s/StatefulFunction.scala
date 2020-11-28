@@ -6,6 +6,7 @@ import cats.implicits._
 import cats.mtl._
 import cats.{Applicative, Monad}
 import com.google.protobuf.{ByteString, any}
+import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
   Address,
   FromFunction,
@@ -63,31 +64,51 @@ object StatefulFunction {
   def flinkWrapper[F[_]: Monad, A](
       initialState: Array[Byte],
       func: any.Any => FunctionStack[F, Array[Byte], Unit]
-  ): ToFunction.InvocationBatchRequest => F[Either[FlinkError, FunctionState[Array[Byte]]]] = {
-    input =>
-      val startState =
-        input.state.headOption
-          .map(_.stateValue.toByteArray())
-          .filter(!_.isEmpty)
-          .getOrElse(initialState)
-      val targetAddr =
-        EitherT.fromOption[F](input.target, FlinkError.NoFunctionAddressGiven: FlinkError)
-      targetAddr.flatMap { targetAddr =>
-        val env = Env(targetAddr.namespace, targetAddr.`type`, targetAddr.id)
-        input.invocations.foldLeft(EitherT.pure[F, FlinkError](FunctionState(startState))) {
-          (state, invocation) =>
-            invocation.argument
-              .map { arg =>
-                state.flatMap { state =>
-                  EitherT(func(arg).value.run(state).run(env).map {
-                    case (state, result) => result.map(_ => state)
-                  })
-                }
+  ): ToFunction.InvocationBatchRequest => F[Either[FlinkError, FromFunction]] = { input =>
+    val startState =
+      input.state.headOption
+        .map(_.stateValue.toByteArray())
+        .filter(!_.isEmpty)
+        .getOrElse(initialState)
+    val targetAddr =
+      EitherT.fromOption[F](input.target, FlinkError.NoFunctionAddressGiven: FlinkError)
+    targetAddr.flatMap { targetAddr =>
+      val env = Env(targetAddr.namespace, targetAddr.`type`, targetAddr.id)
+      input.invocations
+        .foldLeft(EitherT.pure[F, FlinkError](FunctionState(startState))) { (state, invocation) =>
+          invocation.argument
+            .map { arg =>
+              state.flatMap { state =>
+                EitherT(func(arg).value.run(state).run(env).map {
+                  case (state, result) => result.map(_ => state)
+                })
               }
-              .getOrElse(state)
+            }
+            .getOrElse(state)
         }
-      }.value
+        .map(stateToFromFunction)
+    }.value
   }
+
+  private def stateToFromFunction(state: FunctionState[Array[Byte]]): FromFunction =
+    FromFunction(
+      FromFunction.Response.InvocationResult(
+        FromFunction.InvocationResponse(
+          if (state.mutated)
+            List(
+              PersistedValueMutation(
+                PersistedValueMutation.MutationType.MODIFY,
+                Constants.STATE_KEY,
+                ByteString.copyFrom(state.ctx)
+              )
+            )
+          else Nil,
+          state.invocations.toList,
+          state.delayedInvocations.toList,
+          state.egressMessages.toList
+        )
+      )
+    )
 
   implicit def inputCodec[A <: GeneratedMessage](implicit
       companion: GeneratedMessageCompanion[A]

@@ -9,8 +9,8 @@ case class FunctionState[A](
     ctx: A,
     mutated: Boolean = false,
     invocations: Chain[FromFunction.Invocation] = Chain.empty,
-    functionStateDelayedInvocations: Chain[FromFunction.DelayedInvocation] = Chain.empty,
-    functionStateEgressMessages: Chain[FromFunction.EgressMessage] = Chain.empty
+    delayedInvocations: Chain[FromFunction.DelayedInvocation] = Chain.empty,
+    egressMessages: Chain[FromFunction.EgressMessage] = Chain.empty
 )
 
 object FunctionState {
