@@ -119,10 +119,10 @@ object StatefulFunction {
     new StatefulFunction[F, S] {
       val stateful = Stateful[F, FunctionState[S]]
       override def getCtx: F[S] = stateful.inspect(_.ctx)
-      override def setCtx(state: S): F[Unit] = stateful.modify(_.copy(ctx = state))
+      override def setCtx(state: S): F[Unit] = stateful.modify(_.copy(ctx = state, mutated = true))
       override def insideCtx[A](inner: S => A): F[A] = stateful.inspect(fs => inner(fs.ctx))
       override def modifyCtx(modify: S => S): F[Unit] =
-        stateful.modify(fs => fs.copy(modify(fs.ctx)))
+        stateful.modify(fs => fs.copy(ctx = modify(fs.ctx), mutated = true))
       override def sendMessage[A <: GeneratedMessage](
           namespace: String,
           fnType: String,

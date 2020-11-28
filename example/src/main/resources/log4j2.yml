@@ -1,0 +1,38 @@
+Configuration:
+  status: warn
+  name: FlinkStatefunLogging
+  thresholdFilter:
+    level: debug
+  appenders:
+    Console:
+      name: CONSOLE
+      target: SYSTEM_OUT
+      # JSONLayout:
+      #   properties: true
+      #   compact: true
+      #   eventEol: true
+      #   stacktraceAsString: true
+      PatternLayout:
+        Pattern: "%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %X - %m%n"
+ 
+  Loggers:
+    logger:
+      - name: com.bcf
+        level: debug
+        additivity: false
+        AppenderRef:
+          ref: CONSOLE
+      - name: datadog
+        level: warn
+        additivity: false
+        AppenderRef:
+          ref: CONSOLE
+      - name: org.http4s
+        level: info
+        additivity: false
+        AppenderRef:
+          ref: CONSOLE
+    Root:
+      level: warn
+      AppenderRef:
+        ref: CONSOLE

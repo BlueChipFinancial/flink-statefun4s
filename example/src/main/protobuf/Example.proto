@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package example;
+option java_package = "com.bcf.statefun4s.example";
+option java_multiple_files = true;
+
+message GreeterRequest {
+  string name = 1;
+}
+
+message GreeterResponse {
+  string greeting = 1;
+}
+
+message GreeterState {
+  int64 num = 1;
+}
