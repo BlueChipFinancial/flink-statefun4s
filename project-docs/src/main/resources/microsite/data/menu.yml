@@ -1,0 +1,9 @@
+options:
+  - title: Intro
+    url: docs/
+
+  - title: Trace
+    url: docs/trace/
+
+  - title: Http4s
+    url: docs/http4s/
