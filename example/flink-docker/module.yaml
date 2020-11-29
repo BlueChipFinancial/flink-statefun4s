@@ -45,5 +45,5 @@ module:
             deliverySemantic:
               # type: at-least-once
               type: exactly-once
-              transactionTimeoutMillis: 10000
+              transactionTimeoutMillis: 100000
 
