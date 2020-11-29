@@ -14,7 +14,7 @@ object Example extends IOApp {
   def greeterEntry[F[_]: StatefulFunction[*[_], Unit]: Sync](
       input: GreeterRequest
   ): F[Unit] =
-    StatefulFunction[F, Unit].sendMessage("example", "greeter", input.name, input)
+    StatefulFunction[F, Unit].sendMsg("example", "greeter", input.name, input)
 
   def greeter[F[_]: StatefulFunction[*[_], GreeterState]: Sync](
       @nowarn input: GreeterRequest

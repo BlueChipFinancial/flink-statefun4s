@@ -1,5 +1,7 @@
 package com.bcf.statefun4s
 
+import scala.concurrent.duration.FiniteDuration
+
 import cats.data._
 import cats.effect.Sync
 import cats.implicits._
@@ -20,13 +22,25 @@ trait StatefulFunction[F[_], S] {
   def setCtx(state: S): F[Unit]
   def insideCtx[A](inner: S => A): F[A]
   def modifyCtx(modify: S => S): F[Unit]
-  def sendMessage[A <: GeneratedMessage](
+  def sendMsg[A <: GeneratedMessage](
       namespace: String,
       fnType: String,
       id: String,
       data: A
   ): F[Unit]
-  def sendByteMessage[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit]
+  def sendDelayedMsg[A <: GeneratedMessage](
+      namespace: String,
+      fnType: String,
+      id: String,
+      delay: FiniteDuration,
+      data: A
+  ): F[Unit]
+  def sendEgressMsg[A <: GeneratedMessage](
+      namespace: String,
+      fnType: String,
+      data: A
+  ): F[Unit]
+  def sendByteMsg[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit]
 }
 
 object StatefulFunction {
@@ -123,7 +137,7 @@ object StatefulFunction {
       override def insideCtx[A](inner: S => A): F[A] = stateful.inspect(fs => inner(fs.ctx))
       override def modifyCtx(modify: S => S): F[Unit] =
         stateful.modify(fs => fs.copy(ctx = modify(fs.ctx), mutated = true))
-      override def sendMessage[A <: GeneratedMessage](
+      override def sendMsg[A <: GeneratedMessage](
           namespace: String,
           fnType: String,
           id: String,
@@ -137,7 +151,37 @@ object StatefulFunction {
             )
           )
         )
-      override def sendByteMessage[A: Codec](
+      override def sendDelayedMsg[A <: GeneratedMessage](
+          namespace: String,
+          fnType: String,
+          id: String,
+          delay: FiniteDuration,
+          data: A
+      ): F[Unit] =
+        stateful.modify(fs =>
+          fs.copy(
+            delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
+              delay.toMillis,
+              Some(Address(namespace, fnType, id)),
+              com.google.protobuf.any.Any.pack[A](data).some
+            )
+          )
+        )
+      override def sendEgressMsg[A <: GeneratedMessage](
+          namespace: String,
+          fnType: String,
+          data: A
+      ): F[Unit] =
+        stateful.modify(fs =>
+          fs.copy(
+            egressMessages = fs.egressMessages :+ FromFunction.EgressMessage(
+              namespace,
+              fnType,
+              com.google.protobuf.any.Any.pack[A](data).some
+            )
+          )
+        )
+      override def sendByteMsg[A: Codec](
           namespace: String,
           fnType: String,
           id: String,
