@@ -4,6 +4,3 @@ options:
 
   - title: Trace
     url: docs/trace/
-
-  - title: Http4s
-    url: docs/http4s/

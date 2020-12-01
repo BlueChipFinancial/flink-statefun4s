@@ -1,7 +1,0 @@
-{
-  "terminal.integrated.shell.linux": "nix-shell",
-  "nixEnvSelector.nixShellConfig": "${workspaceRoot}/shell.nix",
-  "files.watcherExclude": {
-    "**/target": true
-  }
-}

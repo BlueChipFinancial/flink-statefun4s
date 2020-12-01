@@ -41,6 +41,13 @@ trait StatefulFunction[F[_], S] {
       data: A
   ): F[Unit]
   def sendByteMsg[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit]
+  def sendDelayedByteMsg[A: Codec](
+      namespace: String,
+      fnType: String,
+      id: String,
+      delay: FiniteDuration,
+      data: A
+  ): F[Unit]
 }
 
 object StatefulFunction {
@@ -148,6 +155,22 @@ object StatefulFunction {
             invocations = fs.invocations :+ FromFunction.Invocation(
               Some(Address(namespace, fnType, id)),
               com.google.protobuf.any.Any.pack[A](data).some
+            )
+          )
+        )
+      override def sendDelayedByteMsg[A: Codec](
+          namespace: String,
+          fnType: String,
+          id: String,
+          delay: FiniteDuration,
+          data: A
+      ): F[Unit] =
+        stateful.modify(fs =>
+          fs.copy(
+            delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
+              delay.toMillis,
+              Some(Address(namespace, fnType, id)),
+              com.google.protobuf.any.Any("", ByteString.copyFrom(Codec[A].serialize(data))).some
             )
           )
         )
