@@ -91,6 +91,7 @@ lazy val example = project
     name := "flink-statefun4s-example",
     mainClass := Some("com.bcf.statefun4s.Example"),
     description := "Statefun SDK example",
+    publish / skip := true,
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
     ),
