@@ -2,5 +2,5 @@ options:
   - title: Intro
     url: docs/
 
-  - title: Trace
-    url: docs/trace/
+  - title: StatefulFunction
+    url: docs/statefulfunction/
