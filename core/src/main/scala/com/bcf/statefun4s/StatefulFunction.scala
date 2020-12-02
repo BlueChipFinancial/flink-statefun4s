@@ -17,11 +17,62 @@ import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
 }
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
+/**
+  * ==Overview==
+  * Provides functions for interacting with Flink Statefun.
+  *
+  * [[getCtx]], [[setCtx]], [[insideCtx]], [[modifyCtx]] are all used for viewing/modifying
+  * Flink state which is persistently stored in Flink and committed in lockstep
+  * with Kafka consumer/producers.
+  *
+  * [[sendMsg]], [[sendDelayedMsg]] are used to pass messages from function to function
+  * with or without some time delay. Delayed messages are stored in Flink state and scheduled
+  * regardless of whether Flink has an event to react to.
+  *
+  * [[sendByteMsg]], etc. are used to send messages in non-protobuf format as just
+  * pure bytes. Note that if you use this, the other SDK must support treating the protobuf
+  * Any as just a byte container. Also if your function is accepted a non-protobuf message
+  * you must use the [[StatefulFunction.byteInput]] rather than [[StatefulFunction.protoInput]] function.
+  *
+  * ==Greeter Example==
+  * {{{
+  *   case class GreeterRequest(name: String)
+  *   case class GreeterState(num: Int)
+  *
+  *   def greeter[F[_]: StatefulFunction[*[_], GreeterState]: Sync](
+  *      input: GreeterRequest
+  *  ): F[Unit] = {
+  *    val statefun = StatefulFunction[F, GreeterState]
+  *    for {
+  *      newCount <- statefun.insideCtx(_.num + 1)
+  *      _ <- statefun.modifyCtx(_.copy(newCount))
+  *      _ <- statefun.sendEgressMsg(
+  *        "greeting",
+  *        "greets",
+  *        KafkaProducerRecord(
+  *          input.name,
+  *          GreeterResponse(s"Saw ${input.name} ${newCount} time(s)").toByteString,
+  *          "greets"
+  *        )
+  *      )
+  *    } yield ()
+  *  }
+  * }}}
+  *
+  * This function accepts a GreeterRequest with the persons name to greet in the message.
+  * It must be called with the "id" being something unique to the user, which will cause the GreeterState
+  * to be unique to the user and every user will have their own [[Int]] of the count.
+  *
+  * Flink calls out with a batch of events, the SDK will call this function for each event in the batch
+  * while passing along the state from the previous call. Finally that state will be sent back to Flink
+  * in a batch of mutations that are committed to Flink state with the Kafka offset ensuring exactly once processing.
+  */
 trait StatefulFunction[F[_], S] {
   def getCtx: F[S]
   def setCtx(state: S): F[Unit]
   def insideCtx[A](inner: S => A): F[A]
   def modifyCtx(modify: S => S): F[Unit]
+  def functionId: F[String]
   def sendMsg[A <: GeneratedMessage](
       namespace: String,
       fnType: String,
@@ -133,7 +184,7 @@ object StatefulFunction {
       )
     )
 
-  implicit def stateFunStack[F[_]: Sync: Stateful[*[_], FunctionState[S]]: Raise[
+  implicit def stateFunStack[F[_]: Sync: Ask[*[_], Env]: Stateful[*[_], FunctionState[S]]: Raise[
     *[_],
     FlinkError
   ], S: Codec]: StatefulFunction[F, S] =
@@ -144,6 +195,7 @@ object StatefulFunction {
       override def insideCtx[A](inner: S => A): F[A] = stateful.inspect(fs => inner(fs.ctx))
       override def modifyCtx(modify: S => S): F[Unit] =
         stateful.modify(fs => fs.copy(ctx = modify(fs.ctx), mutated = true))
+      override def functionId: F[String] = Ask[F, Env].reader(_.functionId)
       override def sendMsg[A <: GeneratedMessage](
           namespace: String,
           fnType: String,

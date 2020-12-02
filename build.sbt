@@ -25,7 +25,7 @@ lazy val commonSettings = Seq(
     )
   ),
   scalaVersion := "2.13.3",
-  version := "1.0.0",
+  version := "1.0.1",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
@@ -131,6 +131,7 @@ lazy val micrositeSettings: Seq[Def.Setting[_]] = Seq(
   micrositeGithubToken := sys.env.get("GITHUB_TOKEN"),
   micrositePushSiteWith := GitHub4s,
   micrositeHighlightTheme := "atom-one-light",
+  micrositeHighlightLanguages ++= Seq("protobuf"),
   includeFilter in makeSite := "*.html" | "*.css" | "*.png" | "*.jpg" | "*.gif" | "*.js" | "*.swf" | "*.md" | "*.svg"
 )
 
