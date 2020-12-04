@@ -128,17 +128,17 @@ def cron[F[_]: StatefulFunction[*[_], CronState]: Sync](
 ): F[Unit] = {
   val statefun = StatefulFunction[F, GreeterState]
   input match {
-    case Cron.Create(cronStr, event) =>
-    for {
-      _ <- statefun.modifyCtx(_.copy(Some(event)))
-      id <- statefun.functionId
-      _ <- statefun.sendDelayedMsg(
-        "example",
-        "cron",
-        id,
-        nextRun(cronStr)
-      )
-    } yield ()
+    case create @ Cron.Create(cronStr, _) =>
+      for {
+        _ <- statefun.modifyCtx(_.copy(Some(create)))
+        id <- statefun.functionId
+        _ <- statefun.sendDelayedMsg(
+          "example",
+          "cron",
+          id,
+          nextRun(cronStr)
+        )
+      } yield ()
     case Cron.Trigger =>
       for {
         id <- statefun.functionId
