@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package example;
+option java_package = "com.bcf.statefun4s";
+option java_multiple_files = true;
+
+import "scalapb/scalapb.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "statefun4s/RequestReply.proto";
+
+message GreeterRequest {
+  string name = 1;
+}
+
+message GreeterResponse {
+  string greeting = 1;
+}
+
+message GreeterState {
+  int64 num = 1;
+}
+
+message BatchFinished {
+}
+
+message BatchConfig {
+  org.apache.flink.statefun.flink.core.polyglot.Address addr = 1;
+  google.protobuf.Duration window = 2;
+}
+
+message BatchOutput {
+  repeated google.protobuf.Any msg = 1;
+}
+
+message BatchState {
+  google.protobuf.Duration window = 1 [(scalapb.field).no_box = true];
+  org.apache.flink.statefun.flink.core.polyglot.Address addr = 2 [(scalapb.field).no_box = true];
+  repeated google.protobuf.Any msg = 3;
+}

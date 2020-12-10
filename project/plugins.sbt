@@ -7,4 +7,4 @@ addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.3" )
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.1.13")
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.0-RC4")
 
-libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.10.9"
+libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.0-M4"

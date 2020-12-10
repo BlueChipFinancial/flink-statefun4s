@@ -7,14 +7,11 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.mtl._
 import cats.{Applicative, Monad}
-import com.bcf.statefun4s.FlinkError.DeserializationError
+import com.bcf.statefun4s.FlinkError.{DeserializationError, ReplyWithNoCaller}
+import com.bcf.statefun4s.proto.sdkstate._
 import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
-  Address,
-  FromFunction,
-  ToFunction
-}
+import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply._
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
 /**
@@ -72,12 +69,43 @@ trait StatefulFunction[F[_], S] {
   def setCtx(state: S): F[Unit]
   def insideCtx[A](inner: S => A): F[A]
   def modifyCtx(modify: S => S): F[Unit]
-  def functionId: F[String]
+  def deleteCtx: F[Unit]
+  def myAddr: F[Address]
+  def reply(data: any.Any): F[Unit]
+  def reply[A <: GeneratedMessage](data: A): F[Unit] =
+    reply(com.google.protobuf.any.Any.pack[A](data))
+  def replyBytes[A: Codec](data: A): F[Unit] =
+    reply(com.google.protobuf.any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+
+  def selfMsg(data: any.Any): F[Unit]
+  def selfMsg[A <: GeneratedMessage](data: A): F[Unit] = selfMsg(any.Any.pack(data))
+  def selfMsg[A: Codec](data: A): F[Unit] =
+    selfMsg(any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+  def selfDelayedMsg(delay: FiniteDuration, data: any.Any): F[Unit]
+  def selfDelayedMsg[A <: GeneratedMessage](delay: FiniteDuration, data: A): F[Unit] =
+    selfDelayedMsg(delay, any.Any.pack(data))
+  def selfDelayedMsg[A: Codec](delay: FiniteDuration, data: A): F[Unit] =
+    selfDelayedMsg(delay, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+  def sendMsg(
+      namespace: String,
+      fnType: String,
+      id: String,
+      data: any.Any
+  ): F[Unit]
   def sendMsg[A <: GeneratedMessage](
       namespace: String,
       fnType: String,
       id: String,
       data: A
+  ): F[Unit] = sendMsg(namespace, fnType, id, any.Any.pack(data))
+  def sendByteMsg[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit] =
+    sendByteMsg(namespace, fnType, id, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+  def sendDelayedMsg(
+      namespace: String,
+      fnType: String,
+      id: String,
+      delay: FiniteDuration,
+      data: any.Any
   ): F[Unit]
   def sendDelayedMsg[A <: GeneratedMessage](
       namespace: String,
@@ -85,28 +113,47 @@ trait StatefulFunction[F[_], S] {
       id: String,
       delay: FiniteDuration,
       data: A
-  ): F[Unit]
-  def sendEgressMsg[A <: GeneratedMessage](
-      namespace: String,
-      fnType: String,
-      data: A
-  ): F[Unit]
-  def sendByteMsg[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit]
+  ): F[Unit] = sendDelayedMsg(namespace, fnType, id, delay, any.Any.pack(data))
   def sendDelayedByteMsg[A: Codec](
       namespace: String,
       fnType: String,
       id: String,
       delay: FiniteDuration,
       data: A
+  ): F[Unit] =
+    sendDelayedMsg(
+      namespace,
+      fnType,
+      id,
+      delay,
+      any.Any("", ByteString.copyFrom(Codec[A].serialize(data)))
+    )
+  def sendEgressMsg(
+      namespace: String,
+      fnType: String,
+      data: any.Any
   ): F[Unit]
+  def sendEgressMsg[A <: GeneratedMessage](
+      namespace: String,
+      fnType: String,
+      data: A
+  ): F[Unit] = sendEgressMsg(namespace, fnType, any.Any.pack(data))
+  def sendEgressMsg[A: Codec](
+      namespace: String,
+      fnType: String,
+      data: A
+  ): F[Unit] =
+    sendEgressMsg(namespace, fnType, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+
+  def doOnce(fa: F[Unit]): F[Unit]
 }
 
 object StatefulFunction {
 
-  case class Env(functionNamespace: String, functionType: String, functionId: String)
+  case class Env(callee: Address, caller: Option[Address])
 
   type FunctionStack[F[_], S, A] =
-    EitherT[StateT[ReaderT[F, Env, *], FunctionState[S], *], FlinkError, A]
+    EitherT[StateT[ReaderT[F, Env, *], FunctionState[SdkState[S]], *], FlinkError, A]
 
   def protoInput[F[_]: Raise[
     *[_],
@@ -137,19 +184,31 @@ object StatefulFunction {
   def flinkWrapper[F[_]: Monad, S: Codec](initialState: S)(
       func: any.Any => FunctionStack[F, S, Unit]
   ): ToFunction.InvocationBatchRequest => F[Either[FlinkError, FromFunction]] = { input =>
-    val startState =
-      input.state.headOption
+    val sdkState =
+      input.state
+        .find(_.stateName == Constants.STATE_KEY)
         .map(_.stateValue.toByteArray())
         .filter(!_.isEmpty)
-        .map(Codec[S].deserialize)
-        .getOrElse(initialState.asRight)
-        .leftMap(DeserializationError(_): FlinkError)
+        .map(Codec[SdkStateProto].deserialize)
+        .getOrElse(SdkStateProto(ByteString.EMPTY, false).asRight)
+
+    val startState = sdkState
+      .flatMap { sdkState =>
+        val flinkState = sdkState.userState.toByteArray()
+        val userState =
+          if (flinkState.isEmpty)
+            initialState.asRight
+          else
+            Codec[S].deserialize(flinkState)
+        userState.map(SdkState(_, sdkState.doOnce))
+      }
+      .leftMap(DeserializationError(_): FlinkError)
     val targetAddr =
       EitherT.fromOption[F](input.target, FlinkError.NoFunctionAddressGiven: FlinkError)
     targetAddr.flatMap { targetAddr =>
-      val env = Env(targetAddr.namespace, targetAddr.`type`, targetAddr.id)
       input.invocations
         .foldLeft(EitherT.fromEither[F](startState.map(FunctionState(_)))) { (state, invocation) =>
+          val env = Env(targetAddr, invocation.caller)
           invocation.argument
             .map { arg =>
               state.flatMap { state =>
@@ -160,8 +219,14 @@ object StatefulFunction {
             }
             .getOrElse(state)
         }
-        .map(stateToFromFunction[S])
+        .map { fs =>
+          fs.map(sdkState =>
+            SdkStateProto(ByteString.copyFrom(Codec[S].serialize(sdkState.data)), sdkState.doOnce)
+          )
+        }
+        .map(stateToFromFunction(_))
     }.value
+
   }
 
   private def stateToFromFunction[S: Codec](state: FunctionState[S]): FromFunction =
@@ -176,6 +241,14 @@ object StatefulFunction {
                 ByteString.copyFrom(Codec[S].serialize(state.ctx))
               )
             )
+          else if (state.deleted)
+            List(
+              PersistedValueMutation(
+                PersistedValueMutation.MutationType.DELETE,
+                Constants.STATE_KEY,
+                ByteString.EMPTY
+              )
+            )
           else Nil,
           state.invocations.toList,
           state.delayedInvocations.toList,
@@ -184,92 +257,106 @@ object StatefulFunction {
       )
     )
 
-  implicit def stateFunStack[F[_]: Sync: Ask[*[_], Env]: Stateful[*[_], FunctionState[S]]: Raise[
+  implicit def stateFunStack[F[_]: Sync: Ask[*[_], Env]: Stateful[
+    *[_],
+    FunctionState[SdkState[S]]
+  ]: Raise[
     *[_],
     FlinkError
   ], S: Codec]: StatefulFunction[F, S] =
     new StatefulFunction[F, S] {
-      val stateful = Stateful[F, FunctionState[S]]
-      override def getCtx: F[S] = stateful.inspect(_.ctx)
-      override def setCtx(state: S): F[Unit] = stateful.modify(_.copy(ctx = state, mutated = true))
-      override def insideCtx[A](inner: S => A): F[A] = stateful.inspect(fs => inner(fs.ctx))
+      val stateful = Stateful[F, FunctionState[SdkState[S]]]
+      override def getCtx: F[S] = stateful.inspect(_.ctx.data)
+      override def setCtx(state: S): F[Unit] =
+        stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(data = state), mutated = true))
+      override def insideCtx[A](inner: S => A): F[A] = stateful.inspect(fs => inner(fs.ctx.data))
       override def modifyCtx(modify: S => S): F[Unit] =
-        stateful.modify(fs => fs.copy(ctx = modify(fs.ctx), mutated = true))
-      override def functionId: F[String] = Ask[F, Env].reader(_.functionId)
-      override def sendMsg[A <: GeneratedMessage](
+        stateful.modify(fs =>
+          fs.copy(ctx = fs.ctx.copy(data = modify(fs.ctx.data)), mutated = true)
+        )
+      override def deleteCtx: F[Unit] = stateful.modify(_.copy(deleted = true))
+      override def myAddr: F[Address] = Ask[F, Env].reader(_.callee)
+
+      override def reply(data: com.google.protobuf.any.Any): F[Unit] =
+        for {
+          callee <- Ask[F, Env].reader(_.callee)
+          callerOpt <- Ask[F, Env].reader(_.caller)
+          caller <-
+            callerOpt
+              .map(_.pure[F])
+              .getOrElse(Raise[F, FlinkError].raise(ReplyWithNoCaller(callee)))
+          _ <- sendMsg(caller.namespace, caller.`type`, caller.id, data)
+        } yield ()
+
+      override def sendMsg(
           namespace: String,
           fnType: String,
           id: String,
-          data: A
+          data: com.google.protobuf.any.Any
       ): F[Unit] =
         stateful.modify(fs =>
           fs.copy(
             invocations = fs.invocations :+ FromFunction.Invocation(
               Some(Address(namespace, fnType, id)),
-              com.google.protobuf.any.Any.pack[A](data).some
+              data.some
             )
           )
         )
-      override def sendDelayedByteMsg[A: Codec](
+
+      override def sendDelayedMsg(
           namespace: String,
           fnType: String,
           id: String,
           delay: FiniteDuration,
-          data: A
+          data: com.google.protobuf.any.Any
       ): F[Unit] =
         stateful.modify(fs =>
           fs.copy(
             delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
               delay.toMillis,
               Some(Address(namespace, fnType, id)),
-              com.google.protobuf.any.Any("", ByteString.copyFrom(Codec[A].serialize(data))).some
+              data.some
             )
           )
         )
-      override def sendDelayedMsg[A <: GeneratedMessage](
+
+      override def sendEgressMsg(
           namespace: String,
           fnType: String,
-          id: String,
-          delay: FiniteDuration,
-          data: A
-      ): F[Unit] =
-        stateful.modify(fs =>
-          fs.copy(
-            delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
-              delay.toMillis,
-              Some(Address(namespace, fnType, id)),
-              com.google.protobuf.any.Any.pack[A](data).some
-            )
-          )
-        )
-      override def sendEgressMsg[A <: GeneratedMessage](
-          namespace: String,
-          fnType: String,
-          data: A
+          data: any.Any
       ): F[Unit] =
         stateful.modify(fs =>
           fs.copy(
             egressMessages = fs.egressMessages :+ FromFunction.EgressMessage(
               namespace,
               fnType,
-              com.google.protobuf.any.Any.pack[A](data).some
+              data.some
             )
           )
         )
-      override def sendByteMsg[A: Codec](
-          namespace: String,
-          fnType: String,
-          id: String,
-          data: A
+
+      override def selfMsg(data: com.google.protobuf.any.Any): F[Unit] =
+        for {
+          addr <- myAddr
+          _ <- sendMsg(addr.namespace, addr.`type`, addr.id, data)
+        } yield ()
+
+      override def selfDelayedMsg(
+          delay: FiniteDuration,
+          data: com.google.protobuf.any.Any
       ): F[Unit] =
-        stateful.modify(fs =>
-          fs.copy(
-            invocations = fs.invocations :+ FromFunction.Invocation(
-              Some(Address(namespace, fnType, id)),
-              com.google.protobuf.any.Any("", ByteString.copyFrom(Codec[A].serialize(data))).some
-            )
+        for {
+          addr <- myAddr
+          _ <- sendDelayedMsg(addr.namespace, addr.`type`, addr.id, delay, data)
+        } yield ()
+
+      override def doOnce(fa: F[Unit]): F[Unit] =
+        stateful
+          .inspect(_.ctx.doOnce)
+          .ifM(
+            Sync[F].unit,
+            fa *> stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(doOnce = true), mutated = true))
           )
-        )
     }
 
   def apply[F[_]: StatefulFunction[*[_], S], S] = implicitly[StatefulFunction[F, S]]

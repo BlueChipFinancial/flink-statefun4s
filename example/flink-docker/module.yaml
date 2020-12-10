@@ -7,11 +7,29 @@ module:
       - function:
           meta:
             kind: http
+            type: util/batch
+          spec:
+            endpoint: http://scala-worker:8080/statefun
+            states:
+              - flink_state
+            maxNumBatchRequests: 500
+            timeout: 2min
+      - function:
+          meta:
+            kind: http
             type: example/greeter
           spec:
             endpoint: http://scala-worker:8080/statefun
             states:
               - flink_state
+            maxNumBatchRequests: 500
+            timeout: 2min
+      - function:
+          meta:
+            kind: http
+            type: example/printer
+          spec:
+            endpoint: http://scala-worker:8080/statefun
             maxNumBatchRequests: 500
             timeout: 2min
       - function:

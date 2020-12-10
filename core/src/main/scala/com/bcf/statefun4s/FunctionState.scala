@@ -8,6 +8,7 @@ import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.From
 case class FunctionState[A](
     ctx: A,
     mutated: Boolean = false,
+    deleted: Boolean = false,
     invocations: Chain[FromFunction.Invocation] = Chain.empty,
     delayedInvocations: Chain[FromFunction.DelayedInvocation] = Chain.empty,
     egressMessages: Chain[FromFunction.EgressMessage] = Chain.empty

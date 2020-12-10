@@ -1,6 +1,7 @@
 package com.bcf.statefun4s
 
 import cats.implicits._
+import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply._
 
 sealed abstract class FlinkError(
     msg: Option[String] = None,
@@ -16,4 +17,6 @@ object FlinkError {
       extends FlinkError("No function address sent with request".some)
   final case object NoTargetInBatch
       extends FlinkError("Expected a target with the batch and received nothing".some)
+  final case class ReplyWithNoCaller(callee: Address)
+      extends FlinkError(s"Function: $callee tried to reply but had no caller".some)
 }

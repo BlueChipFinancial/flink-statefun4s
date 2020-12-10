@@ -63,6 +63,8 @@ lazy val root = project
   .dependsOn(core, example, docs)
   .aggregate(core, example, docs)
 
+lazy val circeVersion = "0.13.0"
+
 lazy val core = project
   .in(file("core"))
   .settings(commonSettings)
@@ -80,6 +82,10 @@ lazy val core = project
       "org.http4s" %% "http4s-dsl" % "0.21.4",
       "org.http4s" %% "http4s-blaze-server" % "0.21.4",
       "org.typelevel" %% "simulacrum" % "1.0.0",
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-generic-extras" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
     )
   )
