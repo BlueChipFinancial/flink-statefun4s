@@ -25,7 +25,7 @@ lazy val commonSettings = Seq(
     )
   ),
   scalaVersion := "2.13.3",
-  version := "1.0.2",
+  version := "1.1.0",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
@@ -83,8 +83,6 @@ lazy val core = project
       "org.http4s" %% "http4s-blaze-server" % "0.21.4",
       "org.typelevel" %% "simulacrum" % "1.0.0",
       "io.circe" %% "circe-core" % circeVersion,
-      "io.circe" %% "circe-generic" % circeVersion,
-      "io.circe" %% "circe-generic-extras" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
     )
