@@ -2,11 +2,11 @@ package com.bcf.statefun4s
 
 import scala.concurrent.duration.FiniteDuration
 
+import cats._
 import cats.data._
 import cats.effect.Sync
 import cats.implicits._
 import cats.mtl._
-import cats.{Applicative, Monad}
 import com.bcf.statefun4s.FlinkError.{DeserializationError, ReplyWithNoCaller}
 import com.bcf.statefun4s.proto.sdkstate._
 import com.google.protobuf.{ByteString, any}
@@ -154,6 +154,20 @@ object StatefulFunction {
 
   type FunctionStack[F[_], S, A] =
     EitherT[StateT[ReaderT[F, Env, *], FunctionState[SdkState[S]], *], FlinkError, A]
+
+  object FunctionStack {
+    def pure[F[_]: Monad, S, A](a: A) =
+      a.pure[EitherT[StateT[ReaderT[F, Env, *], FunctionState[SdkState[S]], *], FlinkError, *]]
+
+    def liftK[F[_]: Monad, S]: F ~> FunctionStack[F, S, *] =
+      EitherT
+        .liftK[StateT[ReaderT[F, Env, *], FunctionState[SdkState[S]], *], FlinkError]
+        .compose(
+          StateT
+            .liftK[ReaderT[F, Env, *], FunctionState[SdkState[S]]]
+            .compose(ReaderT.liftK)
+        )
+  }
 
   def protoInput[F[_]: Raise[
     *[_],
