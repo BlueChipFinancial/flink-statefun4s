@@ -7,7 +7,7 @@ import cats.data._
 import cats.effect.Sync
 import cats.implicits._
 import cats.mtl._
-import com.bcf.statefun4s.FlinkError.{DeserializationError, ReplyWithNoCaller}
+import com.bcf.statefun4s.FlinkError.{DeserializationError, NoCallerForFunction, ReplyWithNoCaller}
 import com.bcf.statefun4s.proto.sdkstate._
 import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
@@ -71,6 +71,7 @@ trait StatefulFunction[F[_], S] {
   def modifyCtx(modify: S => S): F[Unit]
   def deleteCtx: F[Unit]
   def myAddr: F[Address]
+  def caller: F[Address]
   def reply(data: any.Any): F[Unit]
   def reply[A <: GeneratedMessage](data: A): F[Unit] =
     reply(com.google.protobuf.any.Any.pack[A](data))
@@ -290,6 +291,15 @@ object StatefulFunction {
         )
       override def deleteCtx: F[Unit] = stateful.modify(_.copy(deleted = true))
       override def myAddr: F[Address] = Ask[F, Env].reader(_.callee)
+      override def caller: F[Address] =
+        for {
+          callee <- Ask[F, Env].reader(_.callee)
+          callerOpt <- Ask[F, Env].reader(_.caller)
+          caller <-
+            callerOpt
+              .map(_.pure[F])
+              .getOrElse(Raise[F, FlinkError].raise(NoCallerForFunction(callee)))
+        } yield caller
 
       override def reply(data: com.google.protobuf.any.Any): F[Unit] =
         for {

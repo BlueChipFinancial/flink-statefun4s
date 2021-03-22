@@ -19,4 +19,6 @@ object FlinkError {
       extends FlinkError("Expected a target with the batch and received nothing".some)
   final case class ReplyWithNoCaller(callee: Address)
       extends FlinkError(s"Function: $callee tried to reply but had no caller".some)
+  final case class NoCallerForFunction(callee: Address)
+      extends FlinkError(s"Function: $callee tried to request a caller but had none".some)
 }
