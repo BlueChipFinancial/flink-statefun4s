@@ -72,6 +72,7 @@ trait StatefulFunction[F[_], S] {
   def deleteCtx: F[Unit]
   def myAddr: F[Address]
   def caller: F[Address]
+  def callerOption: F[Option[Address]]
   def reply(data: any.Any): F[Unit]
   def reply[A <: GeneratedMessage](data: A): F[Unit] =
     reply(com.google.protobuf.any.Any.pack[A](data))
@@ -282,19 +283,27 @@ object StatefulFunction {
     new StatefulFunction[F, S] {
       val stateful = Stateful[F, FunctionState[SdkState[S]]]
       override def getCtx: F[S] = stateful.inspect(_.ctx.data)
+
       override def setCtx(state: S): F[Unit] =
         stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(data = state), mutated = true))
+
       override def insideCtx[A](inner: S => A): F[A] = stateful.inspect(fs => inner(fs.ctx.data))
+
       override def modifyCtx(modify: S => S): F[Unit] =
         stateful.modify(fs =>
           fs.copy(ctx = fs.ctx.copy(data = modify(fs.ctx.data)), mutated = true)
         )
+
       override def deleteCtx: F[Unit] = stateful.modify(_.copy(deleted = true))
+
       override def myAddr: F[Address] = Ask[F, Env].reader(_.callee)
+
+      override def callerOption: F[Option[Address]] = Ask[F, Env].reader(_.caller)
+
       override def caller: F[Address] =
         for {
-          callee <- Ask[F, Env].reader(_.callee)
-          callerOpt <- Ask[F, Env].reader(_.caller)
+          callee <- myAddr
+          callerOpt <- callerOption
           caller <-
             callerOpt
               .map(_.pure[F])
@@ -303,8 +312,8 @@ object StatefulFunction {
 
       override def reply(data: com.google.protobuf.any.Any): F[Unit] =
         for {
-          callee <- Ask[F, Env].reader(_.callee)
-          callerOpt <- Ask[F, Env].reader(_.caller)
+          callee <- myAddr
+          callerOpt <- callerOption
           caller <-
             callerOpt
               .map(_.pure[F])
