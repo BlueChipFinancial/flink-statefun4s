@@ -148,6 +148,7 @@ trait StatefulFunction[F[_], S] {
     sendEgressMsg(namespace, fnType, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
 
   def doOnce(fa: F[Unit]): F[Unit]
+  def doOnceOrElse(fa: F[Unit])(fb: F[Unit]): F[Unit]
 }
 
 object StatefulFunction {
@@ -389,6 +390,14 @@ object StatefulFunction {
           .ifM(
             Sync[F].unit,
             fa *> stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(doOnce = true), mutated = true))
+          )
+
+      override def doOnceOrElse(fa: F[Unit])(fb: F[Unit]): F[Unit] =
+        stateful
+          .inspect(_.ctx.doOnce)
+          .ifM(
+            fb,
+            doOnce(fa)
           )
     }
 
