@@ -385,19 +385,14 @@ object StatefulFunction {
         } yield ()
 
       override def doOnce(fa: F[Unit]): F[Unit] =
-        stateful
-          .inspect(_.ctx.doOnce)
-          .ifM(
-            Sync[F].unit,
-            fa *> stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(doOnce = true), mutated = true))
-          )
+        doOnceOrElse(fa)(Sync[F].unit)
 
       override def doOnceOrElse(fa: F[Unit])(fb: F[Unit]): F[Unit] =
         stateful
           .inspect(_.ctx.doOnce)
           .ifM(
             fb,
-            doOnce(fa)
+            fa *> stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(doOnce = true), mutated = true))
           )
     }
 
