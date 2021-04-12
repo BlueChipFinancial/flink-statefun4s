@@ -101,7 +101,7 @@ trait StatefulFunction[F[_], S] {
       data: A
   ): F[Unit] = sendMsg(namespace, fnType, id, any.Any.pack(data))
   def sendByteMsg[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit] =
-    sendByteMsg(namespace, fnType, id, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+    sendMsg(namespace, fnType, id, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
   def sendDelayedMsg(
       namespace: String,
       fnType: String,
