@@ -2,7 +2,7 @@ package com.bcf.statefun4s
 
 import cats.implicits._
 import io.circe.parser.decode
-import io.circe.{Codec => CirceCodec}
+import io.circe.{Codec => CirceCodec, Json}
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 import simulacrum.typeclass
 
@@ -25,8 +25,18 @@ object Codec {
     new Codec[A] {
       override def serialize(data: A): Array[Byte] = CirceCodec[A].apply(data).noSpaces.getBytes()
       override def deserialize(data: Array[Byte]): Either[Throwable, A] =
-        decode(new String(data, "UTF-8"))
+        Either
+          .catchNonFatal(new String(data, "UTF-8"))
+          .flatMap(decode[A])
     }
+
+  implicit val jsonLitCodec: Codec[Json] = new Codec[Json] {
+    override def serialize(data: Json): Array[Byte] = data.noSpaces.getBytes()
+    override def deserialize(data: Array[Byte]): Either[Throwable, Json] =
+      Either
+        .catchNonFatal(new String(data, "UTF-8"))
+        .flatMap(decode[Json])
+  }
 
   implicit val unitCodec: Codec[Unit] = new Codec[Unit] {
     override def serialize(data: Unit): Array[Byte] = Array.empty
