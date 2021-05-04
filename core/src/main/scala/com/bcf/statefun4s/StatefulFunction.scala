@@ -230,6 +230,8 @@ object StatefulFunction {
             .map { arg =>
               state.flatMap { state =>
                 EitherT(func(arg).value.run(state).run(env).map {
+                  case (state, result) if state.deleted =>
+                    result.map(_ => state.copy(ctx = SdkState(initialState, false)))
                   case (state, result) => result.map(_ => state)
                 })
               }
@@ -292,10 +294,10 @@ object StatefulFunction {
 
       override def modifyCtx(modify: S => S): F[Unit] =
         stateful.modify(fs =>
-          fs.copy(ctx = fs.ctx.copy(data = modify(fs.ctx.data)), mutated = true)
+          fs.copy(ctx = fs.ctx.copy(data = modify(fs.ctx.data)), mutated = true, deleted = false)
         )
 
-      override def deleteCtx: F[Unit] = stateful.modify(_.copy(deleted = true))
+      override def deleteCtx: F[Unit] = stateful.modify(_.copy(deleted = true, mutated = false))
 
       override def myAddr: F[Address] = Ask[F, Env].reader(_.callee)
 
