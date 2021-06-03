@@ -1,10 +1,13 @@
-addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.7.3")
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.0")
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.18-1")
-addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.15.0")
-addSbtPlugin("com.47deg"  % "sbt-microsites" % "1.3.4")
-addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.20" )
-addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.1.17")
-addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.0.0-RC4")
+addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.+")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.+")
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.+")
+addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.+")
+addSbtPlugin("com.47deg"  % "sbt-microsites" % "1.+")
+addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.+" )
+addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.+")
+addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.+")
 
-libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.11.0-M4"
+//Stick with 0.6.1 -- https://github.com/tkawachi/sbt-lock/issues/34
+addSbtPlugin("com.github.tkawachi" % "sbt-lock" % "0.6.1")
+
+libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.+"

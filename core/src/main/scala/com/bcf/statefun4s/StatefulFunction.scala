@@ -1,7 +1,6 @@
 package com.bcf.statefun4s
 
 import scala.concurrent.duration.FiniteDuration
-
 import cats._
 import cats.data._
 import cats.effect.Sync
@@ -13,6 +12,8 @@ import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply._
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
+
+import scala.annotation.nowarn
 
 /**
   * ==Overview==
@@ -276,6 +277,7 @@ object StatefulFunction {
       )
     )
 
+  @nowarn
   implicit def stateFunStack[F[_]: Sync: Ask[*[_], Env]: Stateful[
     *[_],
     FunctionState[SdkState[S]]

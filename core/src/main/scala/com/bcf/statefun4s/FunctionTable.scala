@@ -3,15 +3,12 @@ package com.bcf.statefun4s
 import cats.data.EitherT
 import cats.effect._
 import cats.implicits._
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
-  FromFunction,
-  ToFunction
-}
+import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{FromFunction, ToFunction}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
-import org.http4s.{HttpApp, HttpRoutes, Response, Status}
-
+import org.http4s.{DecodeFailure, DecodeResult, EntityDecoder, HttpApp, HttpRoutes, Media, MediaRange, Response, Status}
 import FlinkError._
+import fs2.Chunk
 
 object FunctionTable {
   type Table[F[_]] = Map[(String, String), ToFunction.InvocationBatchRequest => F[
@@ -22,6 +19,12 @@ object FunctionTable {
 
   def makeRoutes[F[_]: Sync](table: Table[F]): HttpRoutes[F] =
     new Http4sDsl[F] {
+      implicit val decoder: EntityDecoder[F, Array[Byte]] = new EntityDecoder[F, Array[Byte]] {
+        override def decode(m: Media[F], strict: Boolean): DecodeResult[F, Array[Byte]] =
+          DecodeResult(m.body.chunks.compile.toVector.map(bytes => Chunk.concat(bytes).asRight[DecodeFailure])).map(_.toArray)
+        override def consumes: Set[MediaRange] = Set(MediaRange.`*/*`)
+      }
+
       def run: HttpRoutes[F] =
         HttpRoutes.of[F] {
           case req @ POST -> Root / "statefun" =>

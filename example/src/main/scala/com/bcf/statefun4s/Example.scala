@@ -2,7 +2,6 @@ package com.bcf.statefun4s
 
 import scala.concurrent.ExecutionContext
 import scala.jdk.DurationConverters._
-
 import cats.effect._
 import cats.implicits._
 import com.bcf.statefun4s.example._
@@ -10,10 +9,12 @@ import com.google.protobuf.any
 import com.google.protobuf.duration.Duration
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
 import org.apache.flink.statefun.flink.io.generated.Kafka.KafkaProducerRecord
-import org.http4s.server.blaze.BlazeServerBuilder
-
 import StatefulFunction._
+import org.http4s.blaze.server.BlazeServerBuilder
 
+import scala.annotation.nowarn
+
+@nowarn
 object Example extends IOApp {
   def greeterEntry[F[_]: StatefulFunction[*[_], Unit]: Sync](
       input: GreeterRequest
