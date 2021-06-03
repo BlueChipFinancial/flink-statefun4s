@@ -1,12 +1,12 @@
 package com.bcf.statefun4s
 
+import scala.annotation.nowarn
+
 import cats.implicits._
 import io.circe.parser.decode
-import io.circe.{Json, Codec => CirceCodec}
+import io.circe.{Codec => CirceCodec, Json}
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 import simulacrum.typeclass
-
-import scala.annotation.nowarn
 
 @nowarn
 @typeclass trait Codec[A] {
