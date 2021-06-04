@@ -282,7 +282,7 @@ object StatefulFunction {
   ]: Raise[
     *[_],
     FlinkError
-  ], S: Codec]: StatefulFunction[F, S] =
+  ], S]: StatefulFunction[F, S] =
     new StatefulFunction[F, S] {
       val stateful = Stateful[F, FunctionState[SdkState[S]]]
       override def getCtx: F[S] = stateful.inspect(_.ctx.data)

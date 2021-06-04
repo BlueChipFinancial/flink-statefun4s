@@ -1,5 +1,6 @@
 package com.bcf.statefun4s
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.DurationConverters._
 
@@ -10,10 +11,11 @@ import com.google.protobuf.any
 import com.google.protobuf.duration.Duration
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
 import org.apache.flink.statefun.flink.io.generated.Kafka.KafkaProducerRecord
-import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.blaze.server.BlazeServerBuilder
 
 import StatefulFunction._
 
+@nowarn
 object Example extends IOApp {
   def greeterEntry[F[_]: StatefulFunction[*[_], Unit]: Sync](
       input: GreeterRequest
@@ -27,7 +29,7 @@ object Example extends IOApp {
     for {
       newCount <- statefun.insideCtx(_.num + 1)
       _ <- statefun.modifyCtx(_.copy(newCount))
-      greeterResp = GreeterResponse(s"Saw ${input.name} ${newCount} time(s)")
+      greeterResp = GreeterResponse(s"Saw ${input.name} $newCount time(s)")
       _ <- statefun.sendEgressMsg(
         "greeting",
         "greets",

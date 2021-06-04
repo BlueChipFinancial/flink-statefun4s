@@ -1,11 +1,14 @@
 package com.bcf.statefun4s
 
+import scala.annotation.nowarn
+
 import cats.implicits._
 import io.circe.parser.decode
 import io.circe.{Codec => CirceCodec, Json}
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 import simulacrum.typeclass
 
+@nowarn("msg=Unused import")
 @typeclass trait Codec[A] {
   def serialize(data: A): Array[Byte]
   def deserialize(data: Array[Byte]): Either[Throwable, A]

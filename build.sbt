@@ -1,6 +1,6 @@
 credentials in ThisBuild += Credentials(Path.userHome / ".sbt" / ".credentials")
 
-addCommandAlias("f", ";scalafmtAll;scalafixAll")
+addCommandAlias("f", ";scalafixAll;scalafmtAll")
 
 def scalafixRunExplicitly: Def.Initialize[Task[Boolean]] =
   Def.task {
@@ -24,8 +24,8 @@ lazy val commonSettings = Seq(
       url("https://github.com/tdbgamer")
     )
   ),
-  scalaVersion := "2.13.3",
-  version := "1.3.4",
+  scalaVersion := "2.13.5",
+  version := "2.0.0",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
@@ -36,9 +36,9 @@ lazy val commonSettings = Seq(
     "-sourcepath",
     (baseDirectory in LocalRootProject).value.getAbsolutePath
   ),
-  scalafixDependencies in ThisBuild += "com.github.liancheng" %% "organize-imports" % "0.3.1-RC3",
-  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full),
-  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
+  scalafixDependencies in ThisBuild += "com.github.liancheng" %% "organize-imports" % "0.+",
+  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.+" cross CrossVersion.full),
+  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.+"),
   publishTo := {
     val base = "https://bluechipfinancial.jfrog.io/artifactory/sbt-release-local"
     if (isSnapshot.value)
@@ -63,7 +63,7 @@ lazy val root = project
   .dependsOn(core, example, docs)
   .aggregate(core, example, docs)
 
-lazy val circeVersion = "0.13.0"
+lazy val circeVersion = "0.+"
 
 lazy val core = project
   .in(file("core"))
@@ -75,13 +75,13 @@ lazy val core = project
       scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
     ),
     libraryDependencies ++= Seq(
-      "com.olegpy" %% "meow-mtl-effects" % "0.4.0",
-      "org.typelevel" %% "cats-core" % "2.0.0",
-      "org.typelevel" %% "cats-mtl" % "1.0.0",
-      "org.typelevel" %% "cats-effect" % "2.1.3",
-      "org.http4s" %% "http4s-dsl" % "0.21.4",
-      "org.http4s" %% "http4s-blaze-server" % "0.21.4",
-      "org.typelevel" %% "simulacrum" % "1.0.0",
+      "com.olegpy" %% "meow-mtl-effects" % "0.+",
+      "org.typelevel" %% "cats-core" % "2.+",
+      "org.typelevel" %% "cats-mtl" % "1.+",
+      "org.typelevel" %% "cats-effect" % "3.+",
+      "org.http4s" %% "http4s-dsl" % "1.0.0-M23",
+      "org.http4s" %% "http4s-blaze-server" % "1.0.0-M23",
+      "org.typelevel" %% "simulacrum" % "1.+",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
@@ -100,27 +100,26 @@ lazy val example = project
       scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
     ),
     libraryDependencies ++= Seq(
-      "com.olegpy" %% "meow-mtl-effects" % "0.4.0",
-      "org.typelevel" %% "cats-core" % "2.0.0",
-      "org.typelevel" %% "cats-mtl" % "1.0.0",
-      "org.typelevel" %% "cats-effect" % "2.1.3",
-      "org.http4s" %% "http4s-dsl" % "0.21.12",
-      "org.http4s" %% "http4s-blaze-server" % "0.21.4",
-      "org.typelevel" %% "simulacrum" % "1.0.0",
+      "com.olegpy" %% "meow-mtl-effects" % "0.+",
+      "org.typelevel" %% "cats-core" % "2.+",
+      "org.typelevel" %% "cats-mtl" % "1.+",
+      "org.typelevel" %% "cats-effect" % "3.+",
+      "org.http4s" %% "http4s-dsl" % "1.0.0-M23",
+      "org.http4s" %% "http4s-blaze-server" % "1.0.0-M23",
+      "org.typelevel" %% "simulacrum" % "1.+",
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
       // Logging deps
-      "org.slf4j" % "slf4j-api" % "1.7.30",
-      "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.13.3",
-      "org.apache.logging.log4j" % "log4j-core" % "2.13.3",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.10.4",
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.11.0",
-      "io.chrisdavenport" %% "log4cats-slf4j" % "1.1.1",
-      "com.github.mlangc" %% "zio-interop-log4j2" % "1.0.0-RC21"
+      "org.slf4j" % "slf4j-api" % "1.+",
+      "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.+",
+      "org.apache.logging.log4j" % "log4j-core" % "2.+",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.+",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.+",
+      "org.typelevel" %% "log4cats-slf4j" % "2.+"
     ),
     assemblyJarName in assembly := "statefun-greeter-example.jar",
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
-      case x                                   => MergeStrategy.first
+      case _                                   => MergeStrategy.first
     },
   )
   .dependsOn(core)
@@ -147,8 +146,8 @@ lazy val docs = project
   .settings(
     publish / skip := true,
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-client" % "0.21.4",
-      "org.http4s" %% "http4s-blaze-client" % "0.21.4",
+      "org.http4s" %% "http4s-client" % "1.0.0-M23",
+      "org.http4s" %% "http4s-blaze-client" % "1.0.0-M23",
     )
   )
   .enablePlugins(MicrositesPlugin)
