@@ -7,7 +7,4 @@ addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.+" )
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.+")
 addSbtPlugin("com.thesamet" % "sbt-protoc" % "1.+")
 
-//Stick with 0.6.1 -- https://github.com/tkawachi/sbt-lock/issues/34
-addSbtPlugin("com.github.tkawachi" % "sbt-lock" % "0.6.1")
-
 libraryDependencies += "com.thesamet.scalapb" %% "compilerplugin" % "0.+"
