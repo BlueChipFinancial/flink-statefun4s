@@ -8,7 +8,7 @@ import io.circe.{Codec => CirceCodec, Json}
 import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 import simulacrum.typeclass
 
-@nowarn
+@nowarn("msg=Unused import")
 @typeclass trait Codec[A] {
   def serialize(data: A): Array[Byte]
   def deserialize(data: Array[Byte]): Either[Throwable, A]

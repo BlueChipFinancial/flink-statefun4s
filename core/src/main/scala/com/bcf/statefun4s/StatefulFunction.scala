@@ -1,6 +1,5 @@
 package com.bcf.statefun4s
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 
 import cats._
@@ -277,14 +276,13 @@ object StatefulFunction {
       )
     )
 
-  @nowarn
   implicit def stateFunStack[F[_]: Sync: Ask[*[_], Env]: Stateful[
     *[_],
     FunctionState[SdkState[S]]
   ]: Raise[
     *[_],
     FlinkError
-  ], S: Codec]: StatefulFunction[F, S] =
+  ], S]: StatefulFunction[F, S] =
     new StatefulFunction[F, S] {
       val stateful = Stateful[F, FunctionState[SdkState[S]]]
       override def getCtx: F[S] = stateful.inspect(_.ctx.data)
