@@ -3,6 +3,7 @@ package com.bcf.statefun4s
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.DurationConverters._
+
 import cats.effect._
 import cats.implicits._
 import com.bcf.statefun4s.example._
@@ -10,8 +11,9 @@ import com.google.protobuf.any
 import com.google.protobuf.duration.Duration
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
 import org.apache.flink.statefun.flink.io.generated.Kafka.KafkaProducerRecord
-import StatefulFunction._
 import org.http4s.blaze.server.BlazeServerBuilder
+
+import StatefulFunction._
 
 @nowarn
 object Example extends IOApp {
