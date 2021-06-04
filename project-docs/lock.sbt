@@ -90,13 +90,13 @@ dependencyOverrides ++= {
       "org.apache.pdfbox" % "xmpbox" % "2.0.16",
       "org.http4s" % "blaze-core_2.13" % "0.15.1",
       "org.http4s" % "blaze-http_2.13" % "0.15.1",
-      "org.http4s" % "http4s-blaze-client_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-blaze-core_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-blaze-server_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-client_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-core_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-dsl_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-server_2.13" % "0.23.0-RC1",
+      "org.http4s" % "http4s-blaze-client_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-blaze-core_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-blaze-server_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-client_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-core_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-dsl_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-server_2.13" % "1.0.0-M23",
       "org.jboss.logging" % "jboss-logging" % "3.4.1.Final",
       "org.jboss.threads" % "jboss-threads" % "3.1.0.Final",
       "org.jboss.xnio" % "xnio-api" % "3.8.4.Final",
@@ -137,4 +137,4 @@ dependencyOverrides ++= {
     )
   }
 }
-// LIBRARY_DEPENDENCIES_HASH 40351116cc5051f5c338de61db953f93feda1329
+// LIBRARY_DEPENDENCIES_HASH ed3dab06afbb218f27c16f31bebb285a5251a064

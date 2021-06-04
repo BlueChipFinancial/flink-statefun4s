@@ -20,11 +20,11 @@ dependencyOverrides ++= {
       "io.circe" % "circe-parser_2.13" % "0.14.1",
       "org.http4s" % "blaze-core_2.13" % "0.15.1",
       "org.http4s" % "blaze-http_2.13" % "0.15.1",
-      "org.http4s" % "http4s-blaze-core_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-blaze-server_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-core_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-dsl_2.13" % "0.23.0-RC1",
-      "org.http4s" % "http4s-server_2.13" % "0.23.0-RC1",
+      "org.http4s" % "http4s-blaze-core_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-blaze-server_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-core_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-dsl_2.13" % "1.0.0-M23",
+      "org.http4s" % "http4s-server_2.13" % "1.0.0-M23",
       "org.log4s" % "log4s_2.13" % "1.10.0",
       "org.scala-lang.modules" % "scala-collection-compat_2.13" % "2.4.4",
       "org.scodec" % "scodec-bits_2.13" % "1.1.27",
@@ -46,4 +46,4 @@ dependencyOverrides ++= {
     )
   }
 }
-// LIBRARY_DEPENDENCIES_HASH 709c906cfab0df3c2e9f925b835303fabbd4150c
+// LIBRARY_DEPENDENCIES_HASH 2c137ae3a3250fae08f13b36734064bd0238a539
