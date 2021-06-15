@@ -9,7 +9,7 @@ import com.bcf.statefun4s.{FlinkError, FunctionDescriptor, StatefulFunction}
 
 @nowarn("msg=never used")
 class FlinkFunction(namespace: String, `type`: String) extends StaticAnnotation {
-  def macroTransform(annottees: Any*): Any = macro MyMacroImpl.impl
+  def macroTransform(annottees: Any*): Any = macro FlinkFunctionImpl.impl
 }
 
 class FlinkMsg extends StaticAnnotation
@@ -17,7 +17,7 @@ class ProtoInput extends StaticAnnotation
 class CodecInput extends StaticAnnotation
 
 @nowarn("msg=never used")
-object MyMacroImpl {
+object FlinkFunctionImpl {
   def impl(c: whitebox.Context)(annottees: c.Tree*) = {
     import c.universe._
     val (namespace, tpe) = c.prefix.tree match {
