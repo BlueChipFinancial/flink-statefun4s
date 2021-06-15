@@ -104,12 +104,6 @@ object MyMacroImpl {
                   "One function cannot accept multiple serializers (e.g. Protobuf and Codec inputs cannot be used for the same function)"
                 )
 
-              // if (serializerSpecific.length < 1)
-              //   c.abort(
-              //     c.enclosingPosition,
-              //     "Must specify an input serializer (e.g. Protobuf or Codec inputs)"
-              //   )
-
               val renameToApply =
                 q"def apply[..${func.tparams}](...${func.vparamss}): ${func.tpt} = ${func.rhs}"
 
