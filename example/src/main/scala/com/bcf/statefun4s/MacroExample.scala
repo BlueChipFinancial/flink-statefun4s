@@ -7,9 +7,6 @@ import cats.effect._
 import cats.implicits._
 import com.bcf.statefun4s.example._
 import com.bcf.statefun4s.generic._
-import com.google.protobuf.duration.Duration
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
-import org.apache.flink.statefun.flink.io.generated.Kafka.KafkaProducerRecord
 import org.http4s.blaze.server.BlazeServerBuilder
 
 import StatefulFunction._
@@ -32,25 +29,7 @@ object MacroExample extends IOApp {
       newCount <- statefun.insideCtx(_.num + 1)
       _ <- statefun.modifyCtx(_.copy(newCount))
       greeterResp = GreeterResponse(s"Saw ${input.name} $newCount time(s)")
-      _ <- statefun.sendEgressMsg(
-        "greeting",
-        "greets",
-        KafkaProducerRecord(
-          input.name,
-          greeterResp.toByteString,
-          "greets"
-        )
-      )
-      addr <- statefun.myAddr
-      _ <- statefun.doOnce {
-        statefun.sendMsg(
-          "util",
-          "batch",
-          addr.id,
-          BatchConfig(Address("example", "printer", "universal").some, Duration(5).some)
-        )
-      }
-      _ <- statefun.sendMsg("util", "batch", addr.id, greeterResp)
+      _ <- printer.send("singleton", greeterResp)
     } yield ()
   }
 
