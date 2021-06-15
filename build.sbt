@@ -2,6 +2,12 @@ credentials in ThisBuild += Credentials(Path.userHome / ".sbt" / ".credentials")
 
 addCommandAlias("f", ";scalafixAll;scalafmtAll")
 
+lazy val noPublishSettings = Seq(
+  publish := {},
+  publishLocal := {},
+  publishArtifact := false
+)
+
 def scalafixRunExplicitly: Def.Initialize[Task[Boolean]] =
   Def.task {
     executionRoots.value.exists { root =>
@@ -25,7 +31,7 @@ lazy val commonSettings = Seq(
     )
   ),
   scalaVersion := "2.13.5",
-  version := "2.0.0",
+  version := "2.1.0",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
@@ -60,8 +66,8 @@ lazy val root = project
     crossScalaVersions := Nil,
     publish / skip := true
   )
-  .dependsOn(core, example, docs)
-  .aggregate(core, example, docs)
+  .dependsOn(core, example, docs, macros)
+  .aggregate(core, example, docs, macros)
 
 lazy val circeVersion = "0.+"
 
@@ -87,6 +93,19 @@ lazy val core = project
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
     )
   )
+
+lazy val macros = project
+  .in(file("macros"))
+  .settings(commonSettings)
+  .settings(
+    name := "flink-statefun4s-generic",
+    description := "Statefun SDK for Scala",
+    PB.targets in Compile := Seq(
+      scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
+    ),
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+  )
+  .dependsOn(core)
 
 lazy val example = project
   .in(file("example"))
@@ -122,7 +141,7 @@ lazy val example = project
       case _                                   => MergeStrategy.first
     },
   )
-  .dependsOn(core)
+  .dependsOn(core, macros)
 
 lazy val micrositeSettings: Seq[Def.Setting[_]] = Seq(
   micrositeName := "flink-statefun4s",
