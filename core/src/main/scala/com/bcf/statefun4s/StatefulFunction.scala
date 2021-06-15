@@ -183,6 +183,14 @@ object StatefulFunction {
       .flatMap(func)
   }
 
+  def protoInput2[F[_]: Monad, A <: GeneratedMessage: GeneratedMessageCompanion, B](
+      func: A => F[B]
+  )(implicit raise: Raise[F, FlinkError]): any.Any => F[B] = { input =>
+    Raise[F, FlinkError]
+      .catchNonFatal(input.unpack[A])(FlinkError.DeserializationError(_))
+      .flatMap(func)
+  }
+
   def byteInput[F[_]: Raise[
     *[_],
     FlinkError
