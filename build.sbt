@@ -31,7 +31,7 @@ lazy val commonSettings = Seq(
     )
   ),
   scalaVersion := "2.13.5",
-  version := "2.0.0",
+  version := "2.1.0",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
