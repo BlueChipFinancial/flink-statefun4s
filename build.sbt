@@ -66,8 +66,8 @@ lazy val root = project
     crossScalaVersions := Nil,
     publish / skip := true
   )
-  .dependsOn(core, example, docs, macros, macroExamples)
-  .aggregate(core, example, docs, macros, macroExamples)
+  .dependsOn(core, example, docs, macros)
+  .aggregate(core, example, docs, macros)
 
 lazy val circeVersion = "0.+"
 
