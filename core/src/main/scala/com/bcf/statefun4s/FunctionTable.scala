@@ -21,8 +21,8 @@ object FunctionTable {
     Either[FlinkError, FromFunction]
   ]]
 
-  def makeApp[F[_]: Sync](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
-  def makeTypedApp[F[_]: Sync](table: DescriptorTable[F]): HttpApp[F] =
+  def makeApp[F[_]: Async](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
+  def makeTypedApp[F[_]: Async](table: DescriptorTable[F]): HttpApp[F] =
     makeRoutes(table.map { case (fd, f) => fd.namespaceType -> f }).orNotFound
 
   def makeRoutes[F[_]: Async](table: Table[F]): HttpRoutes[F] =
