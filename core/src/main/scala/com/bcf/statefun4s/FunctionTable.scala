@@ -17,7 +17,13 @@ object FunctionTable {
     Either[FlinkError, FromFunction]
   ]]
 
-  def makeApp[F[_]: Async](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
+  type DescriptorTable[F[_]] = Map[FunctionDescriptor, ToFunction.InvocationBatchRequest => F[
+    Either[FlinkError, FromFunction]
+  ]]
+
+  def makeApp[F[_]: Sync](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
+  def makeTypedApp[F[_]: Sync](table: DescriptorTable[F]): HttpApp[F] =
+    makeRoutes(table.map { case (fd, f) => fd.namespaceType -> f }).orNotFound
 
   def makeRoutes[F[_]: Async](table: Table[F]): HttpRoutes[F] =
     new Http4sDsl[F] {
