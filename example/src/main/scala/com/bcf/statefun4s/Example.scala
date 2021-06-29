@@ -1,5 +1,6 @@
 package com.bcf.statefun4s
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.DurationConverters._
 
@@ -10,15 +11,17 @@ import com.google.protobuf.any
 import com.google.protobuf.duration.Duration
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
 import org.apache.flink.statefun.flink.io.generated.Kafka.KafkaProducerRecord
-import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.blaze.server.BlazeServerBuilder
 
+import Codec._
 import StatefulFunction._
 
+@nowarn
 object Example extends IOApp {
   def greeterEntry[F[_]: StatefulFunction[*[_], Unit]: Sync](
       input: GreeterRequest
   ): F[Unit] =
-    StatefulFunction[F, Unit].sendMsg("example", "greeter", input.name, input)
+    StatefulFunction[F, Unit].sendMsg("example", "greeter", input.name, input.pack)
 
   def greeter[F[_]: StatefulFunction[*[_], GreeterState]: Sync](
       input: GreeterRequest
@@ -27,7 +30,7 @@ object Example extends IOApp {
     for {
       newCount <- statefun.insideCtx(_.num + 1)
       _ <- statefun.modifyCtx(_.copy(newCount))
-      greeterResp = GreeterResponse(s"Saw ${input.name} ${newCount} time(s)")
+      greeterResp = GreeterResponse(s"Saw ${input.name} $newCount time(s)")
       _ <- statefun.sendEgressMsg(
         "greeting",
         "greets",
@@ -35,7 +38,7 @@ object Example extends IOApp {
           input.name,
           greeterResp.toByteString,
           "greets"
-        )
+        ).pack
       )
       addr <- statefun.myAddr
       _ <- statefun.doOnce {
@@ -43,10 +46,10 @@ object Example extends IOApp {
           "util",
           "batch",
           addr.id,
-          BatchConfig(Address("example", "printer", "universal").some, Duration(5).some)
+          BatchConfig(Address("example", "printer", "universal").some, Duration(5).some).pack
         )
       }
-      _ <- statefun.sendMsg("util", "batch", addr.id, greeterResp)
+      _ <- statefun.sendMsg("util", "batch", addr.id, greeterResp.pack)
     } yield ()
   }
 
@@ -79,8 +82,8 @@ object Example extends IOApp {
         for {
           msgs <- statefun.insideCtx(_.msg)
           (addr, window) <- statefun.insideCtx(ctx => (ctx.addr, ctx.window))
-          _ <- statefun.sendMsg(addr.namespace, addr.`type`, addr.id, BatchOutput(msgs))
-          _ <- statefun.selfDelayedMsg(window.asJavaDuration.toScala, BatchFinished())
+          _ <- statefun.sendMsg(addr.namespace, addr.`type`, addr.id, BatchOutput(msgs).pack)
+          _ <- statefun.selfDelayedMsg(window.asJavaDuration.toScala, BatchFinished().pack)
           _ <- statefun.modifyCtx(_.copy(msg = Seq.empty))
         } yield ()
       case msg =>
@@ -89,7 +92,7 @@ object Example extends IOApp {
             id <- statefun.myAddr.map(_.id)
             window <- statefun.insideCtx(_.window.asJavaDuration.toScala)
             _ <- Sync[F].delay(println(s"Scheduled batch for $window from now for $id"))
-            _ <- statefun.selfDelayedMsg(window, BatchFinished())
+            _ <- statefun.selfDelayedMsg(window, BatchFinished().pack)
           } yield ()
         } *>
           statefun.modifyCtx(ctx => ctx.copy(msg = ctx.msg :+ msg))
@@ -100,13 +103,13 @@ object Example extends IOApp {
     val app = FunctionTable.makeApp(
       Map(
         ("example", "greeter") -> flinkWrapper(GreeterState(0))(
-          protoInput(greeter[FunctionStack[IO, GreeterState, *]])
+          codecWrapper(greeter[FunctionStack[IO, GreeterState, *]])
         ),
         ("example", "greeterEntry") -> flinkWrapper(())(
-          protoInput(greeterEntry[FunctionStack[IO, Unit, *]])
+          codecWrapper(greeterEntry[FunctionStack[IO, Unit, *]])
         ),
         ("example", "printer") -> flinkWrapper(())(
-          protoInput(printer[FunctionStack[IO, Unit, *]])
+          codecWrapper(printer[FunctionStack[IO, Unit, *]])
         ),
         ("util", "batch") -> flinkWrapper(
           BatchState(Duration(10), Address("example", "printer", "universal"))

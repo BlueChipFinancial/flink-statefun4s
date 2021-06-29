@@ -1,6 +1,15 @@
+import sbtgitflowversion.BranchMatcher._
+import sbtgitflowversion.VersionCalculator._
+
 credentials in ThisBuild += Credentials(Path.userHome / ".sbt" / ".credentials")
 
-addCommandAlias("f", ";scalafmtAll;scalafixAll")
+addCommandAlias("f", ";scalafixAll;scalafmtAll")
+
+lazy val noPublishSettings = Seq(
+  publish := {},
+  publishLocal := {},
+  publishArtifact := false
+)
 
 def scalafixRunExplicitly: Def.Initialize[Task[Boolean]] =
   Def.task {
@@ -24,8 +33,7 @@ lazy val commonSettings = Seq(
       url("https://github.com/tdbgamer")
     )
   ),
-  scalaVersion := "2.13.3",
-  version := "1.3.4",
+  scalaVersion := "2.13.5",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
@@ -36,20 +44,29 @@ lazy val commonSettings = Seq(
     "-sourcepath",
     (baseDirectory in LocalRootProject).value.getAbsolutePath
   ),
-  scalafixDependencies in ThisBuild += "com.github.liancheng" %% "organize-imports" % "0.3.1-RC3",
-  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full),
-  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
-  publishTo := {
-    val base = "https://bluechipfinancial.jfrog.io/artifactory/sbt-release-local"
-    if (isSnapshot.value)
-      Some("Artifactory Realm" at base + ";build.timestamp=" + new java.util.Date().getTime)
-    else Some("Artifactory Realm" at base)
-  },
+  scalafixDependencies in ThisBuild += "com.github.liancheng" %% "organize-imports" % "0.+",
+  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.+" cross CrossVersion.full),
+  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.+"),
   scalacOptions --= {
     if (!scalafixRunExplicitly.value) Seq() else Seq("-Xfatal-warnings")
   },
   semanticdbEnabled := true, // enable SemanticDB
   semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+  tagMatcher := TagMatcher.prefix("v"),
+  versionPolicy := Seq(
+    exact("master") -> currentTag(),
+    exact("develop") -> nextMinor(),
+    prefix("release/v") -> matching(),
+    prefixes("feature/", "bugfix/", "hotfix/") -> lastVersionWithMatching(),
+    any -> unknownVersion
+  ),
+  Global / excludeLintKeys ++= Set(tagMatcher, versionPolicy),
+  publishTo := {
+    val base = "https://bluechipfinancial.jfrog.io/artifactory/sbt-release-oss"
+    if (isSnapshot.value)
+      Some("Artifactory Realm" at base + ";build.timestamp=" + new java.util.Date().getTime)
+    else Some("Artifactory Realm" at base)
+  },
 )
 
 lazy val root = project
@@ -60,10 +77,10 @@ lazy val root = project
     crossScalaVersions := Nil,
     publish / skip := true
   )
-  .dependsOn(core, example, docs)
-  .aggregate(core, example, docs)
+  .dependsOn(core, example, docs, macros)
+  .aggregate(core, example, docs, macros)
 
-lazy val circeVersion = "0.13.0"
+lazy val circeVersion = "0.+"
 
 lazy val core = project
   .in(file("core"))
@@ -75,55 +92,67 @@ lazy val core = project
       scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
     ),
     libraryDependencies ++= Seq(
-      "com.olegpy" %% "meow-mtl-effects" % "0.4.0",
-      "org.typelevel" %% "cats-core" % "2.0.0",
-      "org.typelevel" %% "cats-mtl" % "1.0.0",
-      "org.typelevel" %% "cats-effect" % "2.1.3",
-      "org.http4s" %% "http4s-dsl" % "0.21.4",
-      "org.http4s" %% "http4s-blaze-server" % "0.21.4",
-      "org.typelevel" %% "simulacrum" % "1.0.0",
+      "com.olegpy" %% "meow-mtl-effects" % "0.+",
+      "org.typelevel" %% "cats-core" % "2.+",
+      "org.typelevel" %% "cats-mtl" % "1.+",
+      "org.typelevel" %% "cats-effect" % "3.+",
+      "org.http4s" %% "http4s-dsl" % "1.0.0-M23",
+      "org.http4s" %% "http4s-blaze-server" % "1.0.0-M23",
+      "org.typelevel" %% "simulacrum" % "1.+",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
     )
   )
 
+lazy val macros = project
+  .in(file("macros"))
+  .settings(commonSettings)
+  .settings(
+    name := "flink-statefun4s-generic",
+    description := "Statefun SDK for Scala",
+    PB.targets in Compile := Seq(
+      scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
+    ),
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+  )
+  .dependsOn(core)
+
 lazy val example = project
   .in(file("example"))
   .settings(commonSettings)
   .settings(
     name := "flink-statefun4s-example",
-    mainClass := Some("com.bcf.statefun4s.Example"),
+    mainClass := Some("com.bcf.statefun4s.MacroExample"),
     description := "Statefun SDK example",
     publish / skip := true,
     PB.targets in Compile := Seq(
       scalapb.gen() -> (sourceManaged in Compile).value / "scalapb"
     ),
     libraryDependencies ++= Seq(
-      "com.olegpy" %% "meow-mtl-effects" % "0.4.0",
-      "org.typelevel" %% "cats-core" % "2.0.0",
-      "org.typelevel" %% "cats-mtl" % "1.0.0",
-      "org.typelevel" %% "cats-effect" % "2.1.3",
-      "org.http4s" %% "http4s-dsl" % "0.21.12",
-      "org.http4s" %% "http4s-blaze-server" % "0.21.4",
-      "org.typelevel" %% "simulacrum" % "1.0.0",
+      "com.olegpy" %% "meow-mtl-effects" % "0.+",
+      "org.typelevel" %% "cats-core" % "2.+",
+      "org.typelevel" %% "cats-mtl" % "1.+",
+      "org.typelevel" %% "cats-effect" % "3.+",
+      "org.http4s" %% "http4s-dsl" % "1.0.0-M23",
+      "org.http4s" %% "http4s-blaze-server" % "1.0.0-M23",
+      "org.typelevel" %% "simulacrum" % "1.+",
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
       // Logging deps
-      "org.slf4j" % "slf4j-api" % "1.7.30",
-      "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.13.3",
-      "org.apache.logging.log4j" % "log4j-core" % "2.13.3",
-      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.10.4",
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.11.0",
-      "io.chrisdavenport" %% "log4cats-slf4j" % "1.1.1",
-      "com.github.mlangc" %% "zio-interop-log4j2" % "1.0.0-RC21"
+      "org.slf4j" % "slf4j-api" % "1.+",
+      "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.+",
+      "org.apache.logging.log4j" % "log4j-core" % "2.+",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.+",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.+",
+      "org.typelevel" %% "log4cats-slf4j" % "2.+"
     ),
     assemblyJarName in assembly := "statefun-greeter-example.jar",
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
-      case x                                   => MergeStrategy.first
+      case _                                   => MergeStrategy.first
     },
   )
-  .dependsOn(core)
+  .dependsOn(core, macros)
 
 lazy val micrositeSettings: Seq[Def.Setting[_]] = Seq(
   micrositeName := "flink-statefun4s",
@@ -147,8 +176,8 @@ lazy val docs = project
   .settings(
     publish / skip := true,
     libraryDependencies ++= Seq(
-      "org.http4s" %% "http4s-client" % "0.21.4",
-      "org.http4s" %% "http4s-blaze-client" % "0.21.4",
+      "org.http4s" %% "http4s-client" % "1.0.0-M23",
+      "org.http4s" %% "http4s-blaze-client" % "1.0.0-M23",
     )
   )
   .enablePlugins(MicrositesPlugin)

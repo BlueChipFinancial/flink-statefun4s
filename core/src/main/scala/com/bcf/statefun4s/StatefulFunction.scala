@@ -7,12 +7,16 @@ import cats.data._
 import cats.effect.Sync
 import cats.implicits._
 import cats.mtl._
-import com.bcf.statefun4s.FlinkError.{DeserializationError, NoCallerForFunction, ReplyWithNoCaller}
+import com.bcf.statefun4s.FlinkError.{
+  BadTypeUrl,
+  DeserializationError,
+  NoCallerForFunction,
+  ReplyWithNoCaller
+}
 import com.bcf.statefun4s.proto.sdkstate._
 import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply._
-import scalapb.{GeneratedMessage, GeneratedMessageCompanion}
 
 /**
   * ==Overview==
@@ -74,34 +78,18 @@ trait StatefulFunction[F[_], S] {
   def caller: F[Address]
   def callerOption: F[Option[Address]]
   def reply(data: any.Any): F[Unit]
-  def reply[A <: GeneratedMessage](data: A): F[Unit] =
-    reply(com.google.protobuf.any.Any.pack[A](data))
-  def replyBytes[A: Codec](data: A): F[Unit] =
-    reply(com.google.protobuf.any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
-
   def selfMsg(data: any.Any): F[Unit]
-  def selfMsg[A <: GeneratedMessage](data: A): F[Unit] = selfMsg(any.Any.pack(data))
-  def selfMsg[A: Codec](data: A): F[Unit] =
-    selfMsg(any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
   def selfDelayedMsg(delay: FiniteDuration, data: any.Any): F[Unit]
-  def selfDelayedMsg[A <: GeneratedMessage](delay: FiniteDuration, data: A): F[Unit] =
-    selfDelayedMsg(delay, any.Any.pack(data))
-  def selfDelayedMsg[A: Codec](delay: FiniteDuration, data: A): F[Unit] =
-    selfDelayedMsg(delay, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
   def sendMsg(
       namespace: String,
       fnType: String,
       id: String,
       data: any.Any
   ): F[Unit]
-  def sendMsg[A <: GeneratedMessage](
-      namespace: String,
-      fnType: String,
-      id: String,
-      data: A
-  ): F[Unit] = sendMsg(namespace, fnType, id, any.Any.pack(data))
-  def sendByteMsg[A: Codec](namespace: String, fnType: String, id: String, data: A): F[Unit] =
-    sendMsg(namespace, fnType, id, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
+  def sendMsg(
+      addr: Address,
+      data: any.Any
+  ): F[Unit] = sendMsg(addr.namespace, addr.`type`, addr.id, data)
   def sendDelayedMsg(
       namespace: String,
       fnType: String,
@@ -109,43 +97,11 @@ trait StatefulFunction[F[_], S] {
       delay: FiniteDuration,
       data: any.Any
   ): F[Unit]
-  def sendDelayedMsg[A <: GeneratedMessage](
-      namespace: String,
-      fnType: String,
-      id: String,
-      delay: FiniteDuration,
-      data: A
-  ): F[Unit] = sendDelayedMsg(namespace, fnType, id, delay, any.Any.pack(data))
-  def sendDelayedByteMsg[A: Codec](
-      namespace: String,
-      fnType: String,
-      id: String,
-      delay: FiniteDuration,
-      data: A
-  ): F[Unit] =
-    sendDelayedMsg(
-      namespace,
-      fnType,
-      id,
-      delay,
-      any.Any("", ByteString.copyFrom(Codec[A].serialize(data)))
-    )
   def sendEgressMsg(
       namespace: String,
       fnType: String,
       data: any.Any
   ): F[Unit]
-  def sendEgressMsg[A <: GeneratedMessage](
-      namespace: String,
-      fnType: String,
-      data: A
-  ): F[Unit] = sendEgressMsg(namespace, fnType, any.Any.pack(data))
-  def sendEgressMsg[A: Codec](
-      namespace: String,
-      fnType: String,
-      data: A
-  ): F[Unit] =
-    sendEgressMsg(namespace, fnType, any.Any("", ByteString.copyFrom(Codec[A].serialize(data))))
 
   def doOnce(fa: F[Unit]): F[Unit]
   def doOnceOrElse(fa: F[Unit])(fb: F[Unit]): F[Unit]
@@ -172,31 +128,35 @@ object StatefulFunction {
         )
   }
 
-  def protoInput[F[_]: Raise[
-    *[_],
-    FlinkError
-  ]: Monad, A <: GeneratedMessage: GeneratedMessageCompanion, B](
-      func: A => F[B]
-  ): any.Any => F[B] = { input =>
-    Raise[F, FlinkError]
-      .catchNonFatal(input.unpack[A])(FlinkError.DeserializationError(_))
-      .flatMap(func)
-  }
+  def codecWrapper[F[_]: Monad, A: Codec, B](func: A => F[B])(implicit
+      raise: Raise[F, FlinkError]
+  ) = codecInputK[F, A].andThen(func).run
 
-  def byteInput[F[_]: Raise[
+  def codecInputK[F[_]: Applicative, A: Codec](implicit
+      raise: Raise[F, FlinkError]
+  ) = Kleisli(codecInput[F, A])
+
+  def codecInput[F[_]: Applicative, A: Codec](implicit
+      raise: Raise[F, FlinkError]
+  ): any.Any => F[A] = input => Codec[A].unpack(input).fold[F[A]](raise.raise, _.pure[F])
+
+  def codecMapping[F[_]: Handle[
     *[_],
     FlinkError
   ]: Monad, A: Codec, B](
-      func: A => F[B]
-  ): any.Any => F[B] = { input =>
-    Codec[A]
-      .deserialize(input.value.toByteArray())
-      .fold(
-        err => Raise[F, FlinkError].raise(FlinkError.DeserializationError(err)),
-        Applicative[F].pure
-      )
-      .flatMap(func)
-  }
+      mappers: (any.Any => F[A])*
+  )(original: A => F[B]) =
+    (codecInput[F, A] :: mappers.toList)
+      .reduceLeftOption[any.Any => F[A]] {
+        case (current, next) =>
+          (a: any.Any) =>
+            Handle[F, FlinkError].handleWith(current(a)) {
+              case DeserializationError(_) | BadTypeUrl(_, _) => next(a)
+              case otherwise                                  => Handle[F, FlinkError].raise(otherwise)
+            }
+      }
+      .map(mapper => Kleisli(mapper).andThen(original).run)
+      .getOrElse(codecWrapper(original))
 
   def flinkWrapper[F[_]: Monad, S: Codec](initialState: S)(
       func: any.Any => FunctionStack[F, S, Unit]
@@ -282,7 +242,7 @@ object StatefulFunction {
   ]: Raise[
     *[_],
     FlinkError
-  ], S: Codec]: StatefulFunction[F, S] =
+  ], S]: StatefulFunction[F, S] =
     new StatefulFunction[F, S] {
       val stateful = Stateful[F, FunctionState[SdkState[S]]]
       override def getCtx: F[S] = stateful.inspect(_.ctx.data)
