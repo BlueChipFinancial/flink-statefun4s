@@ -3,26 +3,14 @@ package com.bcf.statefun4s
 import cats.data.EitherT
 import cats.effect._
 import cats.implicits._
-import fs2.Chunk
+import com.bcf.statefun4s.FlinkError._
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
   FromFunction,
   ToFunction
 }
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
-import org.http4s.{
-  DecodeFailure,
-  DecodeResult,
-  EntityDecoder,
-  HttpApp,
-  HttpRoutes,
-  Media,
-  MediaRange,
-  Response,
-  Status
-}
-
-import FlinkError._
+import org.http4s.{HttpApp, HttpRoutes, Response, Status}
 
 object FunctionTable {
   type Table[F[_]] = Map[(String, String), ToFunction.InvocationBatchRequest => F[
@@ -33,27 +21,19 @@ object FunctionTable {
     Either[FlinkError, FromFunction]
   ]]
 
-  def makeApp[F[_]: Sync](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
-  def makeTypedApp[F[_]: Sync](table: DescriptorTable[F]): HttpApp[F] =
+  def makeApp[F[_]: Async](table: Table[F]): HttpApp[F] = makeRoutes(table).orNotFound
+  def makeTypedApp[F[_]: Async](table: DescriptorTable[F]): HttpApp[F] =
     makeRoutes(table.map { case (fd, f) => fd.namespaceType -> f }).orNotFound
 
-  def makeRoutes[F[_]: Sync](table: Table[F]): HttpRoutes[F] =
+  def makeRoutes[F[_]: Async](table: Table[F]): HttpRoutes[F] =
     new Http4sDsl[F] {
-      implicit val decoder: EntityDecoder[F, Array[Byte]] = new EntityDecoder[F, Array[Byte]] {
-        override def decode(m: Media[F], strict: Boolean): DecodeResult[F, Array[Byte]] =
-          DecodeResult(
-            m.body.chunks.compile.toVector.map(bytes => Chunk.concat(bytes).asRight[DecodeFailure])
-          ).map(_.toArray)
-        override def consumes: Set[MediaRange] = Set(MediaRange.`*/*`)
-      }
-
       def run: HttpRoutes[F] =
         HttpRoutes.of[F] {
           case req @ POST -> Root / "statefun" =>
             val result = for {
               body <- EitherT.liftF[F, FlinkError, Array[Byte]](req.as[Array[Byte]])
               toFunction <-
-                Sync[F].delay(ToFunction.parseFrom(body)).attemptT.leftMap(DeserializationError(_))
+                Sync[F].delay(ToFunction.parseFrom(body)).attemptT.leftMap(DeserializationError)
               batch <- EitherT.fromOption[F](
                 toFunction.request.invocation,
                 ExpectedInvocationBatchRequest(toFunction.toProtoString): FlinkError
