@@ -3,9 +3,12 @@ package com.bcf.statefun4s.generic
 import scala.annotation.{StaticAnnotation, nowarn}
 import scala.reflect.macros.whitebox
 
+import cats.Monad
 import cats.implicits._
 import cats.mtl.Handle
+import com.bcf.statefun4s.typed.{CanAccept, TypedStatefulFunction}
 import com.bcf.statefun4s.{Codec, FlinkError, FunctionDescriptor, StatefulFunction}
+import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
 
 @nowarn("msg=never used")
 class FlinkFunction(namespace: String, `type`: String) extends StaticAnnotation {
@@ -63,10 +66,16 @@ object FlinkFunctionImpl {
 
         (inputVar product higherKindedType)
           .map {
-            case (input, (higherKindedType, returnType)) =>
+            case (input, (higherKindedType, typedReturn)) =>
+              val monad = tq"${symbolOf[Monad.type].companion}"
+              val address = tq"${symbolOf[Address.type].companion}"
               val flinkError = tq"${symbolOf[FlinkError.type].companion}"
-              val raise = tq"${symbolOf[Handle.type].companion}"
+              val handle = tq"${symbolOf[Handle.type].companion}"
               val statefulFunction = tq"${symbolOf[StatefulFunction.type].companion}"
+              val typedStateFun = tq"${symbolOf[TypedStatefulFunction.type].companion}"
+              val canAccept = tq"${symbolOf[CanAccept.type].companion}"
+              val canAcceptCons =
+                tq"${symbolOf[CanAccept.type].asClass.module.info.member(TermName("apply"))}"
               val functionDescriptor = tq"${symbolOf[FunctionDescriptor]}"
               val codec = tq"${symbolOf[Codec.type].asClass.module.info.member(TermName("apply"))}"
               val typeIdents = func.tparams.map(_.name).map(Ident(_))
@@ -77,7 +86,7 @@ object FlinkFunctionImpl {
                     Modifiers(Flag.IMPLICIT | Flag.PARAM),
                     TermName(c.freshName()),
                     AppliedTypeTree(
-                      raise,
+                      handle,
                       List(higherKindedType, flinkError)
                     ),
                     EmptyTree
@@ -122,20 +131,35 @@ object FlinkFunctionImpl {
               val fName = TypeName(c.freshName())
               val stateName = TypeName(c.freshName())
               val objName = TermName(func.name.toString)
+              val msgPassing = typedReturn.fold(
+                q"""
+                def send[$fName[_], $stateName](id: String, msg: ${input.tpt})(implicit statefun: $statefulFunction[$fName, $stateName]) =
+                  statefun.sendMsg($namespace, $tpe, id, $codec[${input.tpt}].pack(msg))
+                """
+              ) { typedReturn =>
+                q"""
+                def ask[$fName[_]: $monad, $stateName](id: String, func: $address => ${input.tpt})(implicit canAccept: $canAccept[$typedReturn], statefun: $statefulFunction[$fName, $stateName]) =
+                  statefun.myAddr.flatMap { replyTo =>
+                    statefun.sendMsg($namespace, $tpe, id, $codec[${input.tpt}].pack(func(replyTo)))
+                  }
+                """
+              }
+              val canAcceptImplicits = mappings.map(mapping =>
+                q"implicit val ${TermName(c.freshName())}: $canAccept[${mapping.vparams.head.tpt}] = new $canAccept[${mapping.vparams.head.tpt}]"
+              )
               q"""
               object $objName extends $functionDescriptor {
                 override val namespaceType = ($namespace, $tpe)
-                def send[$fName[_], $stateName](id: String, msg: ${input.tpt})(implicit statefun: $statefulFunction[$fName, $stateName]) =
-                  statefun.sendMsg($namespace, $tpe, id, $codec[${input.tpt}].pack(msg))
+                ..${canAcceptImplicits}
                 def apply[..${func.tparams}](...${func.vparamss}): ${func.tpt} = ${func.rhs}
                 ..${serializedInputDef}
+                ..${msgPassing}
               }
               """
           }
           .getOrElse(EmptyTree)
       case _ => EmptyTree
     }
-    // println(out)
     out
   }
 }

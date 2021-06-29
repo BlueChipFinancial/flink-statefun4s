@@ -15,23 +15,21 @@ import typed._
 
 @nowarn
 object MacroExample extends IOApp {
-  @FlinkFunction("greeter", "greeterEntry")
-  @MapInputs((resp: GreeterResponse) => resp.asMessage)
+  @FlinkFunction("example", "greeterEntry")
+  @MapInputs(
+    (req: GreeterRequest) => GreeterEntryReq(req.name).asMessage,
+    (resp: GreeterResponse) => resp.asMessage,
+  )
   def greeterEntry[F[_]: StatefulFunction[*[_], Unit]: Sync](
       @FlinkMsg input: GreeterRpcMessage
-  ): F[Unit] = {
-    val statefun = StatefulFunction[F, Unit]
+  ): F[Unit] =
     input.toGreeterRpc match {
-      case Empty => ().pure[F]
-      case GreeterEntryReq(name, _) =>
-        statefun.myAddr.flatMap { replyTo =>
-          greeter.send(name, GreeterRequest(name, replyTo))
-        }
-      case resp: GreeterResponse => printer.send("universal", resp)
+      case Empty                    => ().pure[F]
+      case GreeterEntryReq(name, _) => greeter.ask[F, Unit](name, GreeterRequest(name, _))
+      case resp: GreeterResponse    => printer.send("universal", resp)
     }
-  }
 
-  @FlinkFunction("greeter", "greeter")
+  @FlinkFunction("example", "greeter")
   def greeter[F[_]: Sync](
       @FlinkMsg input: GreeterRequest
   )(implicit statefun: TypedStatefulFunction[F, GreeterState, GreeterResponse]): F[Unit] = {
@@ -44,7 +42,7 @@ object MacroExample extends IOApp {
     } yield ()
   }
 
-  @FlinkFunction("stdout", "printer")
+  @FlinkFunction("example", "printer")
   def printer[F[_]: StatefulFunction[*[_], Unit]: Sync](
       @FlinkMsg input: GreeterResponse
   ): F[Unit] =
@@ -64,7 +62,7 @@ object MacroExample extends IOApp {
         )
       )
     )
-    IO(println("Starting up server")) *>
+    IO(println("Starting up server for MacroExample")) *>
       BlazeServerBuilder[IO](ExecutionContext.global)
         .bindHttp(
           8080,

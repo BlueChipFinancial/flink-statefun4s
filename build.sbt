@@ -123,7 +123,7 @@ lazy val example = project
   .settings(commonSettings)
   .settings(
     name := "flink-statefun4s-example",
-    mainClass := Some("com.bcf.statefun4s.Example"),
+    mainClass := Some("com.bcf.statefun4s.MacroExample"),
     description := "Statefun SDK example",
     publish / skip := true,
     PB.targets in Compile := Seq(

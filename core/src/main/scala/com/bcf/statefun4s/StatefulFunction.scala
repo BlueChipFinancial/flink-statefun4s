@@ -7,7 +7,12 @@ import cats.data._
 import cats.effect.Sync
 import cats.implicits._
 import cats.mtl._
-import com.bcf.statefun4s.FlinkError.{DeserializationError, NoCallerForFunction, ReplyWithNoCaller}
+import com.bcf.statefun4s.FlinkError.{
+  BadTypeUrl,
+  DeserializationError,
+  NoCallerForFunction,
+  ReplyWithNoCaller
+}
 import com.bcf.statefun4s.proto.sdkstate._
 import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction.PersistedValueMutation
@@ -141,13 +146,13 @@ object StatefulFunction {
   ]: Monad, A: Codec, B](
       mappers: (any.Any => F[A])*
   )(original: A => F[B]) =
-    (mappers :+ codecInput[F, A]).toList
+    (codecInput[F, A] :: mappers.toList)
       .reduceLeftOption[any.Any => F[A]] {
-        case (func, mapper) =>
+        case (current, next) =>
           (a: any.Any) =>
-            Handle[F, FlinkError].handleWith(func(a)) {
-              case _: DeserializationError => mapper(a)
-              case otherwise               => Handle[F, FlinkError].raise(otherwise)
+            Handle[F, FlinkError].handleWith(current(a)) {
+              case DeserializationError(_) | BadTypeUrl(_, _) => next(a)
+              case otherwise                                  => Handle[F, FlinkError].raise(otherwise)
             }
       }
       .map(mapper => Kleisli(mapper).andThen(original).run)
