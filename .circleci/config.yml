@@ -13,7 +13,7 @@ workflows:
 
 jobs:
   build_and_deploy:
-    working_directory: ~/monad-tracing
+    working_directory: ~/flink-statefun4s
     docker:
       - image: nixos/nix
     steps:
