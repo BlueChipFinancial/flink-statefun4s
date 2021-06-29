@@ -1,3 +1,6 @@
+import sbtgitflowversion.BranchMatcher._
+import sbtgitflowversion.VersionCalculator._
+
 credentials in ThisBuild += Credentials(Path.userHome / ".sbt" / ".credentials")
 
 addCommandAlias("f", ";scalafixAll;scalafmtAll")
@@ -31,7 +34,6 @@ lazy val commonSettings = Seq(
     )
   ),
   scalaVersion := "2.13.5",
-  version := "2.1.1",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
@@ -45,17 +47,26 @@ lazy val commonSettings = Seq(
   scalafixDependencies in ThisBuild += "com.github.liancheng" %% "organize-imports" % "0.+",
   addCompilerPlugin("org.typelevel" % "kind-projector" % "0.+" cross CrossVersion.full),
   addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.+"),
-  publishTo := {
-    val base = "https://bluechipfinancial.jfrog.io/artifactory/sbt-release-local"
-    if (isSnapshot.value)
-      Some("Artifactory Realm" at base + ";build.timestamp=" + new java.util.Date().getTime)
-    else Some("Artifactory Realm" at base)
-  },
   scalacOptions --= {
     if (!scalafixRunExplicitly.value) Seq() else Seq("-Xfatal-warnings")
   },
   semanticdbEnabled := true, // enable SemanticDB
   semanticdbVersion := scalafixSemanticdb.revision, // use Scalafix compatible version
+  tagMatcher := TagMatcher.prefix("v"),
+  versionPolicy := Seq(
+    exact("master") -> currentTag(),
+    exact("develop") -> nextMinor(),
+    prefix("release/v") -> matching(),
+    prefixes("feature/", "bugfix/", "hotfix/") -> lastVersionWithMatching(),
+    any -> unknownVersion
+  ),
+  Global / excludeLintKeys ++= Set(tagMatcher, versionPolicy),
+  publishTo := {
+    val base = "https://bluechipfinancial.jfrog.io/artifactory/sbt-release-oss"
+    if (isSnapshot.value)
+      Some("Artifactory Realm" at base + ";build.timestamp=" + new java.util.Date().getTime)
+    else Some("Artifactory Realm" at base)
+  },
 )
 
 lazy val root = project
@@ -112,7 +123,7 @@ lazy val example = project
   .settings(commonSettings)
   .settings(
     name := "flink-statefun4s-example",
-    mainClass := Some("com.bcf.statefun4s.Example"),
+    mainClass := Some("com.bcf.statefun4s.MacroExample"),
     description := "Statefun SDK example",
     publish / skip := true,
     PB.targets in Compile := Seq(

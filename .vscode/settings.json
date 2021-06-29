@@ -3,5 +3,6 @@
     "**/target": true
   },
   "metals.showImplicitArguments": false,
-  "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix"
+  "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix",
+  "metals.showInferredType": false
 }

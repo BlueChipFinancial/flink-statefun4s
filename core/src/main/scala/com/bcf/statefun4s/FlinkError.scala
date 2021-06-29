@@ -9,6 +9,8 @@ sealed abstract class FlinkError(
 ) extends Throwable(msg.getOrElse(cause.map(_.toString).orNull), cause.orNull)
 object FlinkError {
   final case class DeserializationError(err: Throwable) extends FlinkError(cause = err.some)
+  final case class BadTypeUrl(expected: String, actual: String)
+      extends FlinkError(s"Expected typeUrl $expected but got $actual".some)
   final case class NoSuchFunction(namespace: String, fnType: String)
       extends FlinkError(s"Namespace: $namespace\n Function Type: $fnType".some)
   final case class ExpectedInvocationBatchRequest(received: String)

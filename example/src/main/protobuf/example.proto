@@ -9,8 +9,21 @@ import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "statefun4s/RequestReply.proto";
 
+
+message GreeterRpc {
+  oneof sealed_value {
+    GreeterEntryReq request = 1;
+    GreeterResponse response = 2;
+  }
+}
+
+message GreeterEntryReq {
+  string name = 1;
+}
+
 message GreeterRequest {
   string name = 1;
+  org.apache.flink.statefun.flink.core.polyglot.Address reply_to = 2 [(scalapb.field).no_box = true];
 }
 
 message GreeterResponse {
