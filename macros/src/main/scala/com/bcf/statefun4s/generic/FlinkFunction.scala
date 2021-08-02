@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.mtl.Handle
 import com.bcf.statefun4s.typed.{CanAccept, TypedStatefulFunction}
 import com.bcf.statefun4s.{Codec, FlinkError, FunctionDescriptor, StatefulFunction}
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.Address
 
 @nowarn("msg=never used")
 class FlinkFunction(namespace: String, `type`: String) extends StaticAnnotation {

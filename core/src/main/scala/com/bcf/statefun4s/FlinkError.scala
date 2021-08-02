@@ -1,7 +1,7 @@
 package com.bcf.statefun4s
 
 import cats.implicits._
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply._
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply._
 
 sealed abstract class FlinkError(
     msg: Option[String] = None,

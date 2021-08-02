@@ -19,8 +19,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   master:
-    build:
-      context: .
+    image: apache/flink-statefun:3.0.0-java11
     expose:
       - "6123"
     ports:
@@ -30,10 +29,10 @@ services:
       - MASTER_HOST=master
     volumes:
       - ./checkpoint-dir:/checkpoint-dir
+      - ./module.yaml:/opt/statefun/modules/greeter/module.yaml
 
   worker:
-    build:
-      context: .
+    image: apache/flink-statefun:3.0.0-java11
     expose:
       - "6121"
       - "6122"
@@ -48,6 +47,7 @@ services:
       - "kafka-broker:kafka-broker"
     volumes:
       - ./checkpoint-dir:/checkpoint-dir
+      - ./module.yaml:/opt/statefun/modules/greeter/module.yaml
 
   scala-worker:
     build:

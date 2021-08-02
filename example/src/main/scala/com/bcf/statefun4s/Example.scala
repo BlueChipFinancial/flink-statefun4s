@@ -9,8 +9,8 @@ import cats.implicits._
 import com.bcf.statefun4s.example._
 import com.google.protobuf.any
 import com.google.protobuf.duration.Duration
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
-import org.apache.flink.statefun.flink.io.generated.Kafka.KafkaProducerRecord
+import org.apache.flink.statefun.sdk.egress.generated.Kafka.KafkaProducerRecord
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.Address
 import org.http4s.blaze.server.BlazeServerBuilder
 
 import Codec._

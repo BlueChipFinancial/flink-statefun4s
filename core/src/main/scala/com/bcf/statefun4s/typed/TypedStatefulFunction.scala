@@ -2,9 +2,10 @@ package com.bcf.statefun4s.typed
 
 import scala.concurrent.duration.FiniteDuration
 
+import com.bcf.statefun4s.StatefulFunction.CancellationToken
 import com.bcf.statefun4s.{Codec, StatefulFunction}
 import com.google.protobuf.any
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.Address
 
 trait TypedStatefulFunction[F[_], S, R] extends StatefulFunction[F, S] {
   def reply(reply: R): F[Unit]
@@ -25,7 +26,7 @@ trait TypedStatefulFunction[F[_], S, R] extends StatefulFunction[F, S] {
       id: String,
       delay: FiniteDuration,
       data: R
-  ): F[Unit]
+  ): F[CancellationToken]
   def sendEgressMsg(
       namespace: String,
       fnType: String,
@@ -61,7 +62,7 @@ object TypedStatefulFunction {
           id: String,
           delay: FiniteDuration,
           data: any.Any
-      ): F[Unit] = statefun.sendDelayedMsg(namespace, fnType, id, delay, data)
+      ): F[CancellationToken] = statefun.sendDelayedMsg(namespace, fnType, id, delay, data)
       override def sendEgressMsg(namespace: String, fnType: String, data: any.Any): F[Unit] =
         statefun.sendEgressMsg(namespace, fnType, data)
       override def doOnce(fa: F[Unit]): F[Unit] = statefun.doOnce(fa)
@@ -80,8 +81,16 @@ object TypedStatefulFunction {
           id: String,
           delay: FiniteDuration,
           data: R
-      ): F[Unit] = statefun.sendDelayedMsg(namespace, fnType, id, delay, data)
+      ): F[CancellationToken] = statefun.sendDelayedMsg(namespace, fnType, id, delay, data)
       override def sendEgressMsg(namespace: String, fnType: String, data: R): F[Unit] =
         statefun.sendEgressMsg(namespace, fnType, data)
+
+      override def cancelDelayed(
+          namespace: String,
+          fnType: String,
+          id: String,
+          clToken: CancellationToken
+      ): F[Unit] =
+        statefun.cancelDelayed(namespace, fnType, id, clToken)
     }
 }
