@@ -185,28 +185,10 @@ object StatefulFunction {
         .find(_.stateName == Constants.STATE_KEY)
 
     mbPersistentValue match {
-      case None =>
-        FromFunction(
-          FromFunction.Response.IncompleteInvocationContext(
-            FromFunction.IncompleteInvocationContext(
-              List(
-                FromFunction.PersistedValueSpec(
-                  stateName = Constants.STATE_KEY,
-                  typeTypename = Codec[S].typeUrl,
-                  expirationSpec = expiration.map(e =>
-                    FromFunction.ExpirationSpec(
-                      mode = convertMode(e.mode),
-                      expireAfterMillis = e.after.toMillis,
-                    ),
-                  ),
-                )
-              )
-            )
-          )
-        ).asRight[FlinkError].pure[F]
+      case None => toIncompleteContext(expiration).asRight[FlinkError].pure[F]
       case Some(pv) =>
         val sdkState = pv.stateValue
-          .map(_.toByteArray)
+          .map(_.value.toByteArray)
           .filter(!_.isEmpty)
           .map(Codec[SdkStateProto].deserialize)
           .getOrElse(SdkStateProto(ByteString.EMPTY, false).asRight)
@@ -253,6 +235,26 @@ object StatefulFunction {
         }.value
     }
   }
+
+  private def toIncompleteContext(expiration: Option[Expiration]): FromFunction =
+    FromFunction(
+      FromFunction.Response.IncompleteInvocationContext(
+        FromFunction.IncompleteInvocationContext(
+          List(
+            FromFunction.PersistedValueSpec(
+              stateName = Constants.STATE_KEY,
+              typeTypename = Codec[SdkStateProto].typeUrl,
+              expirationSpec = expiration.map(e =>
+                FromFunction.ExpirationSpec(
+                  mode = convertMode(e.mode),
+                  expireAfterMillis = e.after.toMillis,
+                ),
+              ),
+            )
+          )
+        )
+      )
+    )
 
   private def stateToFromFunction[S: Codec](state: FunctionState[S]): FromFunction =
     FromFunction(
