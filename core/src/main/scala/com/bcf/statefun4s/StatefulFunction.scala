@@ -1,7 +1,5 @@
 package com.bcf.statefun4s
 
-import java.util.UUID
-
 import scala.concurrent.duration.FiniteDuration
 
 import cats._
@@ -15,7 +13,6 @@ import com.bcf.statefun4s.FlinkError.{
   NoCallerForFunction,
   ReplyWithNoCaller
 }
-import com.bcf.statefun4s.StatefulFunction.CancellationToken
 import com.bcf.statefun4s.proto.sdkstate._
 import com.google.protobuf.{ByteString, any}
 import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.FromFunction.PersistedValueMutation
@@ -99,15 +96,11 @@ trait StatefulFunction[F[_], S] {
       id: String,
       delay: FiniteDuration,
       data: any.Any
-  ): F[CancellationToken]
+  ): F[Unit]
   def sendEgressMsg(
       namespace: String,
       fnType: String,
       data: any.Any
-  ): F[Unit]
-
-  def cancelDelayed(
-      clToken: CancellationToken
   ): F[Unit]
 
   def doOnce(fa: F[Unit]): F[Unit]
@@ -124,8 +117,6 @@ object StatefulFunction {
   final case object AFTER_WRITE extends ExpirationMode
 
   case class Expiration(mode: ExpirationMode, after: FiniteDuration)
-
-  case class CancellationToken(token: UUID) extends AnyVal
 
   type FunctionStack[F[_], S, A] =
     EitherT[StateT[ReaderT[F, Env, *], FunctionState[SdkState[S]], *], FlinkError, A]
@@ -353,22 +344,16 @@ object StatefulFunction {
           id: String,
           delay: FiniteDuration,
           data: com.google.protobuf.any.Any
-      ): F[CancellationToken] =
-        Sync[F]
-          .delay(UUID.randomUUID())
-          .flatMap(uuid =>
-            stateful
-              .modify(fs =>
-                fs.copy(
-                  delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
-                    cancellationToken = uuid.toString,
-                    delayInMs = delay.toMillis,
-                    target = Address(namespace, fnType, id).some,
-                    argument = anyToTypedValue(data).some
-                  )
-                )
+      ): F[Unit] =
+        stateful
+          .modify(fs =>
+            fs.copy(
+              delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
+                delayInMs = delay.toMillis,
+                target = Address(namespace, fnType, id).some,
+                argument = anyToTypedValue(data).some
               )
-              .map(_ => CancellationToken(uuid))
+            )
           )
 
       override def sendEgressMsg(
@@ -411,18 +396,6 @@ object StatefulFunction {
             fb,
             fa *> stateful.modify(fs => fs.copy(ctx = fs.ctx.copy(doOnce = true), mutated = true))
           )
-
-      override def cancelDelayed(
-          clToken: CancellationToken
-      ): F[Unit] =
-        stateful.modify(fs =>
-          fs.copy(
-            delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
-              isCancellationRequest = true,
-              cancellationToken = clToken.token.toString,
-            )
-          )
-        )
     }
 
   private def anyToTypedValue(an: com.google.protobuf.any.Any): TypedValue =
