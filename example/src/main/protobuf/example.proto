@@ -23,7 +23,7 @@ message GreeterEntryReq {
 
 message GreeterRequest {
   string name = 1;
-  org.apache.flink.statefun.flink.core.polyglot.Address reply_to = 2 [(scalapb.field).no_box = true];
+  io.statefun.sdk.reqreply.Address reply_to = 2 [(scalapb.field).no_box = true];
 }
 
 message GreeterResponse {
@@ -38,7 +38,7 @@ message BatchFinished {
 }
 
 message BatchConfig {
-  org.apache.flink.statefun.flink.core.polyglot.Address addr = 1;
+  io.statefun.sdk.reqreply.Address addr = 1;
   google.protobuf.Duration window = 2;
 }
 
@@ -48,6 +48,6 @@ message BatchOutput {
 
 message BatchState {
   google.protobuf.Duration window = 1 [(scalapb.field).no_box = true];
-  org.apache.flink.statefun.flink.core.polyglot.Address addr = 2 [(scalapb.field).no_box = true];
+  io.statefun.sdk.reqreply.Address addr = 2 [(scalapb.field).no_box = true];
   repeated google.protobuf.Any msg = 3;
 }

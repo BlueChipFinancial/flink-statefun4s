@@ -4,10 +4,7 @@ import cats.data.EitherT
 import cats.effect._
 import cats.implicits._
 import com.bcf.statefun4s.FlinkError._
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.{
-  FromFunction,
-  ToFunction
-}
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.{FromFunction, ToFunction}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.{HttpApp, HttpRoutes, Response, Status}
