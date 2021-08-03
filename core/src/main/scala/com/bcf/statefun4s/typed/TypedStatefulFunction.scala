@@ -4,7 +4,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import com.bcf.statefun4s.{Codec, StatefulFunction}
 import com.google.protobuf.any
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.Address
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.Address
 
 trait TypedStatefulFunction[F[_], S, R] extends StatefulFunction[F, S] {
   def reply(reply: R): F[Unit]

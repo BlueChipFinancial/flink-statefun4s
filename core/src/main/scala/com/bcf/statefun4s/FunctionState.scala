@@ -3,7 +3,7 @@ package com.bcf.statefun4s
 import cats._
 import cats.data._
 import cats.implicits._
-import org.apache.flink.statefun.flink.core.polyglot.generated.RequestReply.FromFunction
+import org.apache.flink.statefun.sdk.reqreply.generated.RequestReply.FromFunction
 
 case class FunctionState[A](
     ctx: A,
