@@ -131,6 +131,8 @@ lazy val example = project
     ),
     libraryDependencies ++= Seq(
       "com.olegpy" %% "meow-mtl-effects" % "0.+",
+      "io.circe" %% "circe-core" % "0.14.+",
+      "io.circe" %% "circe-generic" % "0.14.+",
       "org.typelevel" %% "cats-core" % "2.+",
       "org.typelevel" %% "cats-mtl" % "1.+",
       "org.typelevel" %% "cats-effect" % "3.+",

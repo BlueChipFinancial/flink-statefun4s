@@ -86,11 +86,8 @@ object TypedStatefulFunction {
         statefun.sendEgressMsg(namespace, fnType, data)
 
       override def cancelDelayed(
-          namespace: String,
-          fnType: String,
-          id: String,
           clToken: CancellationToken
       ): F[Unit] =
-        statefun.cancelDelayed(namespace, fnType, id, clToken)
+        statefun.cancelDelayed(clToken)
     }
 }

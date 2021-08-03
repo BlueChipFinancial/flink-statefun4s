@@ -107,9 +107,6 @@ trait StatefulFunction[F[_], S] {
   ): F[Unit]
 
   def cancelDelayed(
-      namespace: String,
-      fnType: String,
-      id: String,
       clToken: CancellationToken
   ): F[Unit]
 
@@ -416,9 +413,6 @@ object StatefulFunction {
           )
 
       override def cancelDelayed(
-          namespace: String,
-          fnType: String,
-          id: String,
           clToken: CancellationToken
       ): F[Unit] =
         stateful.modify(fs =>
@@ -426,7 +420,6 @@ object StatefulFunction {
             delayedInvocations = fs.delayedInvocations :+ FromFunction.DelayedInvocation(
               isCancellationRequest = true,
               cancellationToken = clToken.token.toString,
-              target = Address(namespace, fnType, id).some,
             )
           )
         )
