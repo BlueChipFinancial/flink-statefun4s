@@ -67,6 +67,9 @@ lazy val commonSettings = Seq(
       Some("Artifactory Realm" at base + ";build.timestamp=" + new java.util.Date().getTime)
     else Some("Artifactory Realm" at base)
   },
+  testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
+  //Exclude ScalaTest brought in from transitive dependencies
+  testFrameworks -= TestFrameworks.ScalaTest
 )
 
 lazy val root = project
@@ -102,6 +105,7 @@ lazy val core = project
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf",
+      "com.disneystreaming" %% "weaver-cats" % "0.+" % Test,
     )
   )
 
