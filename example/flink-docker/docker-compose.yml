@@ -22,6 +22,8 @@ services:
     image: apache/flink-statefun:3.0.0-java11
     expose:
       - "6123"
+    depends_on:
+      - kafka-broker
     ports:
       - "8081:8081"
     environment:

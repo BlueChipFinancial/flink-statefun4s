@@ -5,21 +5,13 @@ module:
   spec:
     endpoints:
       - endpoint:
-        meta:
-          kind: http
-        spec:
-          functions: util/*
-          urlPathTemplate: http://scala-worker:8080/statefun
-          maxNumBatchRequests: 500
-          timeout: 2min
-      - endpoint:
-        meta:
-          kind: http
-        spec:
-          functions: example/*
-          urlPathTemplate: http://scala-worker:8080/statefun
-          maxNumBatchRequests: 500
-          timeout: 2min
+          meta:
+            kind: http
+          spec:
+            functions: example/*
+            urlPathTemplate: http://scala-worker:8080/statefun
+            maxNumBatchRequests: 500
+            timeout: 2min
     ingresses:
       - ingress:
           meta:
