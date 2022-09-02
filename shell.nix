@@ -1,18 +1,18 @@
 { pkgs ? import (builtins.fetchTarball {
-    name = "nixos-unstable-2010-07-08";
-    url = "https://github.com/nixos/nixpkgs/archive/1ceecdd109d0c30fd48fc6af295d9c8b05d6c6c6.tar.gz";
-    sha256 = "10bjz6c47g7k1pxlbxh37dbjbhmywy1l1l02i6r2r5zkbf9ypv53";
+    name = "nixpkgs-22.05pre352484.1882c6b7368";
+    url = "https://releases.nixos.org/nixpkgs/nixpkgs-22.05pre352484.1882c6b7368/nixexprs.tar.xz";
+    sha256 = "03amwzc9j67c86dmxnknchfk30a63jjky9hhw2wilzdrya07w0kr";
   }) {} }:
 
 let
-  jdkVersion = pkgs.openjdk8;
+  jdkVersion = pkgs.openjdk17_headless;
 in
   pkgs.mkShell {
 
     # build-time dependencies
     buildInputs = [
       jdkVersion
-      pkgs.sbt
+      (pkgs.sbt.overrideAttrs (old: old // { jre = jdkVersion.home; }))
       pkgs.scalafmt
       pkgs.jekyll
       pkgs.git
@@ -27,7 +27,7 @@ in
 
 
     shellHook = ''
-      export JAVA_HOME='${jdkVersion}'
+      export JAVA_HOME='${jdkVersion.home}'
       export SBT_HOME='${pkgs.sbt}'
     '';
   }
