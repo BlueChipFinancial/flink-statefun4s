@@ -33,7 +33,7 @@ lazy val commonSettings = Seq(
       url("https://github.com/tdbgamer")
     )
   ),
-  scalaVersion := "2.13.5",
+  scalaVersion := "2.13.12",
   Compile / scalacOptions ++= Seq(
     "-Ymacro-annotations"
   ),
